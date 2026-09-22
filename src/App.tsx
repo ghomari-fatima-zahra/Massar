@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { vehicles, drivers } from './data/mock';
 import Layout from './components/Layout';
-import LoginPage from './pages/LoginPage';
 import NewMissionForm from './pages/NewMissionForm';
 import MissionDetail from './pages/MissionDetail';
 import FleetMissions from './pages/FleetMissions';
@@ -32,27 +31,17 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
 };
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // NOTE: login is disabled for now — it will be added back later.
   const [currentPage, setCurrentPage] = useState<Page>('admin-dashboard');
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
 
-  function handleLogin() {
-    setCurrentPage('admin-dashboard');
-    setIsLoggedIn(true);
-  }
-
   function handleLogout() {
-    setIsLoggedIn(false);
     setCurrentPage('admin-dashboard');
   }
 
   function navigate(page: string, id?: string) {
     setCurrentPage(page as Page);
     if (page === 'mission-detail' && id) setSelectedMissionId(id);
-  }
-
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={() => handleLogin()} />;
   }
 
   function renderPage() {
