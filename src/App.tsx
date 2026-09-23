@@ -14,7 +14,7 @@ type Page =
 const PAGE_TITLES: Record<string, string> = {
   'admin-dashboard': 'Tableau de bord',
   'fleet-missions': 'Missions',
-  'new-mission': 'Nouvelle demande de mission',
+  'new-mission': 'Nouvelle demande',
   'mission-detail': 'Détail de la mission',
   'admin-drivers': 'Conducteurs',
   'admin-vehicles': 'Véhicules',
