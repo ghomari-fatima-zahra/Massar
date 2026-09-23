@@ -9,10 +9,10 @@ interface Props {
 }
 
 export default function AssignmentPage({ selectedId, onNavigate }: Props) {
-  // Missions awaiting assignment: validated requests without a vehicle yet
-  // (workflow: en_attente → affectée → en_cours → terminée)
+  // Missions awaiting assignment: pending requests without a vehicle yet
+  // (workflow: en_attente → en_cours → terminée)
   const assignable = missions.filter(
-    (m) => ['en_attente', 'affectee'].includes(m.status) && !m.vehicleId,
+    (m) => m.status === 'en_attente' && !m.vehicleId,
   );
   const [activeMissionId, setActiveMissionId] = useState(selectedId || assignable[0]?.id || '');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);

@@ -13,8 +13,8 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
 
   const stats = {
     pending: myMissions.filter(m => m.status === 'en_attente').length,
-    approved: myMissions.filter(m => ['affectee', 'en_cours'].includes(m.status)).length,
-    upcoming: myMissions.filter(m => ['affectee'].includes(m.status)).length,
+    approved: myMissions.filter(m => ['en_cours'].includes(m.status)).length,
+    upcoming: myMissions.filter(m => ['en_cours'].includes(m.status)).length,
   };
 
   return (
@@ -64,7 +64,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
       </div>
 
       {/* Upcoming mission alert */}
-      {myMissions.filter(m => m.status === 'affectee').length > 0 && (
+      {myMissions.filter(m => m.status === 'en_cours').length > 0 && (
         <div className="bg-[#E0F2FE] border border-[#BAE6FD] rounded-xl p-4 flex items-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-[#0284C7] flex items-center justify-center flex-shrink-0">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
           </div>
           <div>
             <p className="text-[#0369A1] font-semibold text-sm">Véhicule affecté à votre prochaine mission</p>
-            {myMissions.filter(m => m.status === 'affectee').map(m => (
+            {myMissions.filter(m => m.status === 'en_cours').map(m => (
               <p key={m.id} className="text-[#0369A1]/80 text-sm mt-0.5">
                 Mission vers <strong>{m.destination}</strong> – départ le{' '}
                 {new Date(m.departureDate).toLocaleDateString('fr-DZ', { day: 'numeric', month: 'long' })} à {m.departureTime}

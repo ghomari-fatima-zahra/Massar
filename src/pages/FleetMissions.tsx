@@ -54,9 +54,6 @@ const STATUS_COLOR: Record<string, string> = {
   en_cours: '#22D3EE',
   terminee: '#10B981',
   en_attente: '#F59E0B',
-  validee: '#0EA5E9',
-  confirmee: '#0EA5E9',
-  affectee: '#8B5CF6',
   rejetee: '#EF4444',
   annulee: '#EF4444',
   brouillon: '#94A3B8',
@@ -240,7 +237,7 @@ function RouteMap({
   const routePoints = buildRoutePoints(from, to);
   const t = STATUS_PROGRESS[mission.status as Status] ?? 0;
   const currentPos = interpolateLine(from, to, t);
-  const isActive = ['en_cours', 'affectee', 'confirmee'].includes(mission.status);
+  const isActive = mission.status === 'en_cours';
   const isDone = mission.status === 'terminee';
   const isRejected = ['annulee', 'rejetee'].includes(mission.status);
 
@@ -374,34 +371,45 @@ function RouteMap({
   );
 }
 
-const STAGES = ['En attente', 'Affectée', 'En cours', 'Terminée'] as const;
+const STAGES = ['En attente', 'En cours', 'Terminée'] as const;
 const STAGE_STATUSES: Record<string, Status> = {
   'En attente': 'en_attente',
-  'Affectée': 'affectee', 'En cours': 'en_cours', 'Terminée': 'terminee',
+  'En cours': 'en_cours', 'Terminée': 'terminee',
 };
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
   all: 'Toutes', en_attente: 'En attente',
-  affectee: 'Affectées', en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées',
+  en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées',
 };
 
 const STATUS_DOT: Record<string, string> = {
   en_cours: 'bg-cyan-400', terminee: 'bg-emerald-400', en_attente: 'bg-amber-400',
-  affectee: 'bg-violet-400', rejetee: 'bg-red-400',
+  rejetee: 'bg-red-400',
   annulee: 'bg-red-400', brouillon: 'bg-slate-400',
 };
 
 interface Props {
   onNavigate: (page: string, id?: string) => void;
   initialFilter?: string;
+  assignments: Record<string, { vehicleId: string; driverId: string }>;
+  onAssign: (missionId: string, vehicleId: string, driverId: string) => void;
 }
 
-export default function FleetMissions({ onNavigate, initialFilter }: Props) {
+export default function FleetMissions({ onNavigate, initialFilter, assignments, onAssign }: Props) {
   const [selectedId, setSelectedId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>(initialFilter ?? 'all');
   const [search, setSearch] = useState('');
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [assignVehicle, setAssignVehicle] = useState('');
+  const [assignDriver, setAssignDriver] = useState('');
 
-  const filtered = missions.filter(m => {
+  // Missions validated by the admin (driver + vehicle assigned together) switch to En cours
+  const effMissions = missions.map(m => {
+    const a = assignments[m.id];
+    return a ? { ...m, status: 'en_cours' as Status, vehicleId: a.vehicleId, driverId: a.driverId } : m;
+  });
+
+  const filtered = effMissions.filter(m => {
     if (filterStatus !== 'all' && m.status !== filterStatus) return false;
     if (search && !m.object.toLowerCase().includes(search.toLowerCase()) &&
         !m.employee.toLowerCase().includes(search.toLowerCase()) &&
@@ -409,16 +417,38 @@ export default function FleetMissions({ onNavigate, initialFilter }: Props) {
     return true;
   });
 
-  const selected = missions.find(m => m.id === selectedId) ?? null;
+  const selected = effMissions.find(m => m.id === selectedId) ?? null;
   const vehicle = selected?.vehicleId ? vehicles.find(v => v.id === selected!.vehicleId) : null;
   const driver = selected?.driverId ? drivers.find(d => d.id === selected!.driverId) : null;
   const t = STATUS_PROGRESS[selected?.status as Status] ?? 0;
 
   const counts = {
-    en_cours: missions.filter(m => m.status === 'en_cours').length,
-    en_attente: missions.filter(m => m.status === 'en_attente').length,
-    terminee: missions.filter(m => m.status === 'terminee').length,
+    en_cours: effMissions.filter(m => m.status === 'en_cours').length,
+    en_attente: effMissions.filter(m => m.status === 'en_attente').length,
+    terminee: effMissions.filter(m => m.status === 'terminee').length,
   };
+
+  const assigningMission = effMissions.find(m => m.id === assigning) ?? null;
+  const usedVehicleIds = new Set(
+    Object.entries(assignments).filter(([mid]) => mid !== assigning).map(([, a]) => a.vehicleId),
+  );
+  const usedDriverIds = new Set(
+    Object.entries(assignments).filter(([mid]) => mid !== assigning).map(([, a]) => a.driverId),
+  );
+  const freeVehicles = vehicles.filter(v => v.status === 'disponible' && !usedVehicleIds.has(v.id));
+  const freeDrivers = drivers.filter(d => d.status === 'disponible' && !usedDriverIds.has(d.id));
+
+  function openAssign(id: string) {
+    setAssignVehicle('');
+    setAssignDriver('');
+    setAssigning(id);
+  }
+
+  function confirmAssign() {
+    if (!assigning || !assignVehicle || !assignDriver) return;
+    onAssign(assigning, assignVehicle, assignDriver);
+    setAssigning(null);
+  }
 
   return (
     <div className="flex gap-4 h-full" style={{ maxHeight: 'calc(100vh - 120px)' }}>
@@ -588,8 +618,7 @@ export default function FleetMissions({ onNavigate, initialFilter }: Props) {
                      selected.status === 'terminee' ? '✓ Terminée' :
                      selected.status === 'rejetee' ? '✗ Rejetée' :
                      selected.status === 'annulee' ? '✗ Annulée' :
-                     selected.status === 'en_attente' ? '⏳ En attente' :
-                      selected.status === 'affectee' ? '🚗 Affectée' : selected.status}
+                     selected.status === 'en_attente' ? '⏳ En attente' : selected.status}
                   </span>
                 </div>
               </div>
@@ -739,13 +768,11 @@ export default function FleetMissions({ onNavigate, initialFilter }: Props) {
                           Détails
                         </button>
                         {selected.status === 'en_attente' && (
-                          <button className="px-4 py-2 bg-navy text-white text-sm font-semibold rounded-xl hover:bg-navy-dark transition-colors whitespace-nowrap">
+                          <button
+                            onClick={() => openAssign(selected.id)}
+                            className="px-4 py-2 bg-success text-white text-sm font-semibold rounded-xl hover:bg-green-700 transition-colors whitespace-nowrap"
+                          >
                             Valider
-                          </button>
-                        )}
-                        {selected.status === 'affectee' && !vehicle && (
-                          <button className="px-4 py-2 bg-orange text-white text-sm font-semibold rounded-xl hover:bg-orange-dark transition-colors whitespace-nowrap">
-                            Affecter
                           </button>
                         )}
                       </div>
@@ -756,6 +783,77 @@ export default function FleetMissions({ onNavigate, initialFilter }: Props) {
             </div>
         </>
       </div>
+
+      {/* Validate + assign: driver and vehicle are chosen together in one step */}
+      {assigningMission && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onMouseDown={e => { if (e.target === e.currentTarget) setAssigning(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-mono text-xs text-muted">{assigningMission.id}</p>
+                <h3 className="text-ink text-lg font-bold">Valider et affecter</h3>
+                <p className="text-muted text-sm mt-0.5">{assigningMission.object} — {assigningMission.departure} → {assigningMission.destination}</p>
+              </div>
+              <button onClick={() => setAssigning(null)} aria-label="Fermer" className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-ink transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Véhicule</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
+                  {freeVehicles.map(v => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setAssignVehicle(v.id)}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all ${assignVehicle === v.id ? 'border-navy bg-navy-light' : 'border-border hover:border-navy/40'}`}
+                    >
+                      <p className="text-ink text-sm font-semibold">{v.brand} {v.model}</p>
+                      <p className="font-mono text-[11px] text-muted mt-0.5">{v.registration} · {v.capacity} places</p>
+                    </button>
+                  ))}
+                  {freeVehicles.length === 0 && <p className="text-muted text-sm">Aucun véhicule disponible</p>}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Conducteur</p>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-thin">
+                  {freeDrivers.map(d => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setAssignDriver(d.id)}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all ${assignDriver === d.id ? 'border-navy bg-navy-light' : 'border-border hover:border-navy/40'}`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-full bg-navy/10 text-navy text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                          {d.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-ink text-sm font-semibold truncate">{d.name}</span>
+                          <span className="block text-[11px] text-muted truncate">{d.matricule} · Permis {d.licenceCategories.join('+')}</span>
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                  {freeDrivers.length === 0 && <p className="text-muted text-sm">Aucun conducteur disponible</p>}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end mt-5">
+              <button onClick={() => setAssigning(null)} className="px-5 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
+              <button
+                onClick={confirmAssign}
+                disabled={!assignVehicle || !assignDriver}
+                className="px-6 py-2.5 bg-success text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Valider + affecter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

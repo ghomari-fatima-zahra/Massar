@@ -7,7 +7,7 @@ interface Props {
   onNavigate: (page: string, id?: string) => void;
 }
 
-const ALL_STATUSES: Status[] = ['brouillon', 'en_attente', 'rejetee', 'affectee', 'en_cours', 'terminee', 'annulee'];
+const ALL_STATUSES: Status[] = ['brouillon', 'en_attente', 'rejetee', 'en_cours', 'terminee', 'annulee'];
 
 export default function MyMissions({ onNavigate }: Props) {
   const user = currentUsers['employee'];

@@ -4,14 +4,19 @@ import type { Status } from '../data/mock';
 
 interface Props {
   missionId: string;
+  assignments: Record<string, { vehicleId: string; driverId: string }>;
   onNavigate: (page: string) => void;
   onBack: () => void;
 }
 
-const STATUS_ORDER: Status[] = ['en_attente', 'affectee', 'en_cours', 'terminee'];
+const STATUS_ORDER: Status[] = ['en_attente', 'en_cours', 'terminee'];
 
-export default function MissionDetail({ missionId, onNavigate: _onNavigate, onBack }: Props) {
-  const mission = missions.find(m => m.id === missionId) || missions[0];
+export default function MissionDetail({ missionId, assignments, onNavigate: _onNavigate, onBack }: Props) {
+  const base = missions.find(m => m.id === missionId) || missions[0];
+  const a = assignments[base.id];
+  const mission = a
+    ? { ...base, status: 'en_cours' as Status, vehicleId: a.vehicleId, driverId: a.driverId }
+    : base;
   const vehicle = mission.vehicleId ? vehicles.find(v => v.id === mission.vehicleId) : null;
   const driver = mission.driverId ? drivers.find(d => d.id === mission.driverId) : null;
 

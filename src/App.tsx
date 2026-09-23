@@ -37,6 +37,12 @@ export default function App() {
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
   const [fleetFilter, setFleetFilter] = useState<string>('all');
   const [history, setHistory] = useState<Page[]>([]);
+  // Admin validations: driver + vehicle assigned together → mission goes En cours
+  const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
+
+  function handleAssign(missionId: string, vehicleId: string, driverId: string) {
+    setAssignments(a => ({ ...a, [missionId]: { vehicleId, driverId } }));
+  }
 
   function handleLogout() {
     setCurrentPage('admin-dashboard');
@@ -68,13 +74,13 @@ export default function App() {
       case 'admin-dashboard':
         return <AdminDashboard onNavigate={navigate} />;
       case 'fleet-missions':
-        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} onNavigate={navigate} />;
+        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} onAssign={handleAssign} onNavigate={navigate} />;
       case 'new-mission':
         return <NewMissionForm onNavigate={navigate} onBack={goBack} />;
       case 'mission-detail':
-        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} onNavigate={navigate} onBack={goBack} />;
+        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} onNavigate={navigate} onBack={goBack} />;
       case 'admin-drivers':
-        return <AdminDriversPage />;
+        return <AdminDriversPage assignments={assignments} />;
       case 'admin-vehicles':
         return <AdminVehiclesPage onNavigate={navigate} />;
       case 'admin-structures':
@@ -108,12 +114,19 @@ const DRIVER_STATUSES: { id: Driver['status']; label: string }[] = [
 
 const LICENCE_CATEGORIES = ['A', 'B', 'C', 'D', 'E'];
 
-function AdminDriversPage() {
+// Next driver matricule in sequence (DRV-XXXX), assigned automatically
+function nextMatricule(list: Driver[]) {
+  const nums = list
+    .map(d => parseInt(d.matricule.replace(/\D/g, ''), 10))
+    .filter(n => !Number.isNaN(n));
+  return `DRV-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0')}`;
+}
+
+function AdminDriversPage({ assignments }: { assignments: Record<string, { vehicleId: string; driverId: string }> }) {
   const [driverList, setDriverList] = useState<Driver[]>(drivers);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
     name: '',
-    matricule: '',
     phone: '',
     licenceCategories: ['B'],
     licenceExpiry: '',
@@ -137,7 +150,7 @@ function AdminDriversPage() {
   }
 
   function openModal() {
-    setForm({ name: '', matricule: '', phone: '', licenceCategories: ['B'], licenceExpiry: '', status: 'disponible' });
+    setForm({ name: '', phone: '', licenceCategories: ['B'], licenceExpiry: '', status: 'disponible' });
     setErrors({});
     setShowModal(true);
   }
@@ -145,7 +158,6 @@ function AdminDriversPage() {
   function handleAdd() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Le nom complet est requis.';
-    if (!form.matricule.trim()) e.matricule = 'Le matricule est requis.';
     if (!form.phone.trim()) e.phone = 'Le téléphone est requis.';
     if (form.licenceCategories.length === 0) e.licence = 'Choisissez au moins une catégorie de permis.';
     if (!form.licenceExpiry) e.licenceExpiry = "La date d'expiration du permis est requise.";
@@ -153,7 +165,7 @@ function AdminDriversPage() {
     const next: Driver = {
       id: `D${String(driverList.length + 1).padStart(3, '0')}`,
       name: form.name.trim(),
-      matricule: form.matricule.trim().toUpperCase(),
+      matricule: nextMatricule(driverList),
       licenceCategories: [...form.licenceCategories].sort(),
       licenceExpiry: form.licenceExpiry,
       phone: form.phone.trim(),
@@ -169,7 +181,7 @@ function AdminDriversPage() {
     }`;
 
   return (
-    <div className="max-w-6xl space-y-5">
+    <div className="w-full space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-muted text-sm">{driverList.length} conducteur(s) enregistré(s)</p>
         <button onClick={openModal} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
@@ -193,6 +205,9 @@ function AdminDriversPage() {
               const expiry = new Date(d.licenceExpiry);
               const daysLeft = Math.floor((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
               const warning = daysLeft < 90;
+              // Assigned by the admin to a mission → status flips to En mission
+              const assignedHere = Object.values(assignments).some(a => a.driverId === d.id);
+              const effStatus = assignedHere && d.status === 'disponible' ? 'en_mission' : d.status;
               return (
                 <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3.5">
@@ -212,12 +227,12 @@ function AdminDriversPage() {
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
-                      d.status === 'disponible' ? 'bg-success-bg text-success' :
-                      d.status === 'en_mission' ? 'bg-[#FFF7ED] text-[#C2410C]' :
-                      d.status === 'conge' ? 'bg-[#E0F2FE] text-[#0369A1]' :
+                      effStatus === 'disponible' ? 'bg-success-bg text-success' :
+                      effStatus === 'en_mission' ? 'bg-[#FFF7ED] text-[#C2410C]' :
+                      effStatus === 'conge' ? 'bg-[#E0F2FE] text-[#0369A1]' :
                       'bg-slate-100 text-muted'
                     }`}>
-                      {d.status === 'disponible' ? 'Disponible' : d.status === 'en_mission' ? 'En mission' : d.status === 'conge' ? 'En congé' : 'Indisponible'}
+                      {effStatus === 'disponible' ? 'Disponible' : effStatus === 'en_mission' ? 'En mission' : effStatus === 'conge' ? 'En congé' : 'Indisponible'}
                     </span>
                   </td>
                 </tr>
@@ -248,9 +263,11 @@ function AdminDriversPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-ink mb-1.5">Matricule <span className="text-danger">*</span></label>
-                  <input type="text" placeholder="ex. DRV-0060" className={`${inputClass('matricule')} font-mono`} value={form.matricule} onChange={e => set('matricule', e.target.value)} />
-                  {errors.matricule && <p className="mt-1.5 text-xs text-danger">⚠ {errors.matricule}</p>}
+                  <label className="block text-sm font-medium text-ink mb-1.5">Matricule</label>
+                  <div className="px-3.5 py-2.5 rounded-lg border border-border bg-slate-50 font-mono text-sm text-ink">
+                    {nextMatricule(driverList)}
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted">Attribué automatiquement (séquence)</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-ink mb-1.5">Téléphone <span className="text-danger">*</span></label>

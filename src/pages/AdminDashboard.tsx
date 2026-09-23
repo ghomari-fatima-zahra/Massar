@@ -235,9 +235,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
   const [toast, setToast] = useState<string | null>(null);
 
   const totalMissions = missions.length;
-  const activeMissions = missions.filter((m) =>
-    ['en_cours', 'affectee', 'confirmee'].includes(m.status),
-  );
+  const activeMissions = missions.filter((m) => m.status === 'en_cours');
   const pendingMissions = missions.filter((m) => m.status === 'en_attente');
   const availableVehicles = vehicles.filter((v) => v.status === 'disponible');
   const maintenanceVehicles = vehicles.filter((v) => v.status === 'maintenance');
