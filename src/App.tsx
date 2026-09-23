@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { vehicles, drivers } from './data/mock';
+import type { Driver } from './data/mock';
 import Layout from './components/Layout';
 import NewMissionForm from './pages/NewMissionForm';
 import MissionDetail from './pages/MissionDetail';
@@ -98,50 +99,119 @@ export default function App() {
   );
 }
 
+const DRIVER_STATUSES: { id: Driver['status']; label: string }[] = [
+  { id: 'disponible', label: 'Disponible' },
+  { id: 'en_mission', label: 'En mission' },
+  { id: 'conge', label: 'En congé' },
+  { id: 'indisponible', label: 'Indisponible' },
+];
+
+const LICENCE_CATEGORIES = ['A', 'B', 'C', 'D', 'E'];
+
 function AdminDriversPage() {
+  const [driverList, setDriverList] = useState<Driver[]>(drivers);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    matricule: '',
+    phone: '',
+    licenceCategories: ['B'],
+    licenceExpiry: '',
+    status: 'disponible' as Driver['status'],
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function set(field: string, val: unknown) {
+    setForm(f => ({ ...f, [field]: val }));
+    setErrors(e => { const n = { ...e }; delete n[field]; return n; });
+  }
+
+  function toggleCategory(cat: string) {
+    setForm(f => ({
+      ...f,
+      licenceCategories: f.licenceCategories.includes(cat)
+        ? f.licenceCategories.filter(c => c !== cat)
+        : [...f.licenceCategories, cat].sort(),
+    }));
+    setErrors(e => { const n = { ...e }; delete n.licence; return n; });
+  }
+
+  function openModal() {
+    setForm({ name: '', matricule: '', phone: '', licenceCategories: ['B'], licenceExpiry: '', status: 'disponible' });
+    setErrors({});
+    setShowModal(true);
+  }
+
+  function handleAdd() {
+    const e: Record<string, string> = {};
+    if (!form.name.trim()) e.name = 'Le nom complet est requis.';
+    if (!form.matricule.trim()) e.matricule = 'Le matricule est requis.';
+    if (!form.phone.trim()) e.phone = 'Le téléphone est requis.';
+    if (form.licenceCategories.length === 0) e.licence = 'Choisissez au moins une catégorie de permis.';
+    if (!form.licenceExpiry) e.licenceExpiry = "La date d'expiration du permis est requise.";
+    if (Object.keys(e).length) { setErrors(e); return; }
+    const next: Driver = {
+      id: `D${String(driverList.length + 1).padStart(3, '0')}`,
+      name: form.name.trim(),
+      matricule: form.matricule.trim().toUpperCase(),
+      licenceCategories: [...form.licenceCategories].sort(),
+      licenceExpiry: form.licenceExpiry,
+      phone: form.phone.trim(),
+      status: form.status,
+    };
+    setDriverList(list => [...list, next]);
+    setShowModal(false);
+  }
+
+  const inputClass = (field: string) =>
+    `w-full px-3.5 py-2.5 rounded-lg border text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 transition-all ${
+      errors[field] ? 'border-danger focus:ring-danger/20 bg-danger-bg/30' : 'border-border focus:border-navy focus:ring-navy/15 bg-white'
+    }`;
+
   return (
-    <div className="max-w-5xl space-y-5">
-      <div className="flex justify-end">
-        <button className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+    <div className="max-w-6xl space-y-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-muted text-sm">{driverList.length} conducteur(s) enregistré(s)</p>
+        <button onClick={openModal} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           Nouveau conducteur
         </button>
       </div>
-      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
+        <table className="w-full text-sm min-w-[780px]">
           <thead>
             <tr className="border-b border-border bg-slate-50/80">
-              <th className="text-left px-5 py-3 text-muted font-medium text-xs uppercase tracking-wider">Conducteur</th>
-              <th className="text-left px-5 py-3 text-muted font-medium text-xs uppercase tracking-wider">Matricule</th>
-              <th className="text-left px-5 py-3 text-muted font-medium text-xs uppercase tracking-wider">Permis</th>
-              <th className="text-left px-5 py-3 text-muted font-medium text-xs uppercase tracking-wider">Expiration</th>
-              <th className="text-left px-5 py-3 text-muted font-medium text-xs uppercase tracking-wider">Statut</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Conducteur</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">Matricule</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Permis</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Expiration</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Statut</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {drivers.map(d => {
+            {driverList.map(d => {
               const expiry = new Date(d.licenceExpiry);
               const daysLeft = Math.floor((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
               const warning = daysLeft < 90;
               return (
                 <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-navy flex items-center justify-center text-white text-xs font-bold">{d.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('')}</div>
-                      <div>
-                        <p className="text-ink font-medium">{d.name}</p>
+                      <div className="w-8 h-8 rounded-full bg-navy flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{d.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('')}</div>
+                      <div className="min-w-0">
+                        <p className="text-ink font-medium truncate">{d.name}</p>
                         <p className="text-muted text-xs">{d.phone}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-4 font-mono text-xs text-muted">{d.matricule}</td>
-                  <td className="px-5 py-4"><span className="px-2 py-1 bg-navy-light text-navy text-xs font-semibold rounded">{d.licenceCategories.join(' + ')}</span></td>
-                  <td className="px-5 py-4">
+                  <td className="px-4 py-3.5 font-mono text-xs text-muted whitespace-nowrap">{d.matricule}</td>
+                  <td className="px-4 py-3.5 whitespace-nowrap"><span className="px-2 py-1 bg-navy-light text-navy text-xs font-semibold rounded">{d.licenceCategories.join(' + ')}</span></td>
+                  <td className="px-4 py-3.5 whitespace-nowrap">
                     <p className={`text-sm font-medium ${warning ? 'text-warning' : 'text-ink'}`}>{expiry.toLocaleDateString('fr-DZ')}</p>
                     {warning && <p className="text-warning text-xs">⚠ {daysLeft}j restants</p>}
                   </td>
-                  <td className="px-5 py-4">
-                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                  <td className="px-4 py-3.5">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
                       d.status === 'disponible' ? 'bg-success-bg text-success' :
                       d.status === 'en_mission' ? 'bg-[#FFF7ED] text-[#C2410C]' :
                       d.status === 'conge' ? 'bg-[#E0F2FE] text-[#0369A1]' :
@@ -156,6 +226,81 @@ function AdminDriversPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Add driver modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onMouseDown={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-4 mb-5">
+              <div>
+                <h3 className="text-ink text-lg font-bold">Nouveau conducteur</h3>
+                <p className="text-muted text-sm mt-0.5">Renseignez les informations du conducteur</p>
+              </div>
+              <button onClick={() => setShowModal(false)} aria-label="Fermer" className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-ink transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1.5">Nom complet <span className="text-danger">*</span></label>
+                <input type="text" placeholder="ex. Karim Benali" className={inputClass('name')} value={form.name} onChange={e => set('name', e.target.value)} />
+                {errors.name && <p className="mt-1.5 text-xs text-danger">⚠ {errors.name}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Matricule <span className="text-danger">*</span></label>
+                  <input type="text" placeholder="ex. DRV-0060" className={`${inputClass('matricule')} font-mono`} value={form.matricule} onChange={e => set('matricule', e.target.value)} />
+                  {errors.matricule && <p className="mt-1.5 text-xs text-danger">⚠ {errors.matricule}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Téléphone <span className="text-danger">*</span></label>
+                  <input type="tel" placeholder="+213 …" className={inputClass('phone')} value={form.phone} onChange={e => set('phone', e.target.value)} />
+                  {errors.phone && <p className="mt-1.5 text-xs text-danger">⚠ {errors.phone}</p>}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1.5">Catégories de permis <span className="text-danger">*</span></label>
+                <div className="flex flex-wrap gap-2">
+                  {LICENCE_CATEGORIES.map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => toggleCategory(cat)}
+                      className={`w-11 h-11 rounded-lg border-2 text-sm font-bold transition-all ${
+                        form.licenceCategories.includes(cat)
+                          ? 'border-navy bg-navy text-white'
+                          : 'border-border bg-white text-muted hover:border-navy/40 hover:text-ink'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                {errors.licence && <p className="mt-1.5 text-xs text-danger">⚠ {errors.licence}</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Expiration du permis <span className="text-danger">*</span></label>
+                  <input type="date" className={inputClass('licenceExpiry')} value={form.licenceExpiry} onChange={e => set('licenceExpiry', e.target.value)} />
+                  {errors.licenceExpiry && <p className="mt-1.5 text-xs text-danger">⚠ {errors.licenceExpiry}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Statut initial</label>
+                  <select className={inputClass('status')} value={form.status} onChange={e => set('status', e.target.value as Driver['status'])}>
+                    {DRIVER_STATUSES.map(s => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end mt-6">
+              <button onClick={() => setShowModal(false)} className="px-5 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
+              <button onClick={handleAdd} className="px-6 py-2.5 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors">Ajouter le conducteur</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
