@@ -34,14 +34,32 @@ export default function App() {
   // NOTE: login is disabled for now — it will be added back later.
   const [currentPage, setCurrentPage] = useState<Page>('admin-dashboard');
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
+  const [fleetFilter, setFleetFilter] = useState<string>('all');
+  const [history, setHistory] = useState<Page[]>([]);
 
   function handleLogout() {
     setCurrentPage('admin-dashboard');
+    setHistory([]);
+    setFleetFilter('all');
   }
 
   function navigate(page: string, id?: string) {
-    setCurrentPage(page as Page);
-    if (page === 'mission-detail' && id) setSelectedMissionId(id);
+    const next = page as Page;
+    setHistory((h) => [...h.slice(-19), currentPage]);
+    setCurrentPage(next);
+    if (next === 'mission-detail' && id) setSelectedMissionId(id);
+    if (next === 'fleet-missions') setFleetFilter(id ?? 'all');
+  }
+
+  // Back to the previous page (instead of always jumping to the dashboard)
+  function goBack() {
+    const prev = history[history.length - 1];
+    if (!prev) {
+      setCurrentPage('admin-dashboard');
+      return;
+    }
+    setHistory(history.slice(0, -1));
+    setCurrentPage(prev);
   }
 
   function renderPage() {
@@ -49,11 +67,11 @@ export default function App() {
       case 'admin-dashboard':
         return <AdminDashboard onNavigate={navigate} />;
       case 'fleet-missions':
-        return <FleetMissions onNavigate={navigate} />;
+        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm onNavigate={navigate} />;
+        return <NewMissionForm onNavigate={navigate} onBack={goBack} />;
       case 'mission-detail':
-        return <MissionDetail missionId={selectedMissionId || 'M2024-001'} onNavigate={navigate} />;
+        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} onNavigate={navigate} onBack={goBack} />;
       case 'admin-drivers':
         return <AdminDriversPage />;
       case 'admin-vehicles':

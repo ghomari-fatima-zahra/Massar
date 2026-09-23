@@ -5,11 +5,12 @@ import type { Status } from '../data/mock';
 interface Props {
   missionId: string;
   onNavigate: (page: string) => void;
+  onBack: () => void;
 }
 
-const STATUS_ORDER: Status[] = ['brouillon', 'en_attente', 'validee', 'affectee', 'confirmee', 'en_cours', 'terminee'];
+const STATUS_ORDER: Status[] = ['en_attente', 'affectee', 'en_cours', 'terminee'];
 
-export default function MissionDetail({ missionId, onNavigate }: Props) {
+export default function MissionDetail({ missionId, onNavigate: _onNavigate, onBack }: Props) {
   const mission = missions.find(m => m.id === missionId) || missions[0];
   const vehicle = mission.vehicleId ? vehicles.find(v => v.id === mission.vehicleId) : null;
   const driver = mission.driverId ? drivers.find(d => d.id === mission.driverId) : null;
@@ -25,12 +26,12 @@ export default function MissionDetail({ missionId, onNavigate }: Props) {
 
   return (
     <div className="max-w-5xl space-y-5">
-      {/* Back */}
-      <button onClick={() => onNavigate('my-missions')} className="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors">
+      {/* Back — returns to the previous page */}
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
-        Retour à mes missions
+        Retour
       </button>
 
       {/* Header */}
@@ -113,7 +114,7 @@ export default function MissionDetail({ missionId, onNavigate }: Props) {
                 { label: 'Départ', value: `${mission.departure}` },
                 { label: 'Destination', value: `${mission.destination}` },
                 { label: 'Date départ', value: `${new Date(mission.departureDate).toLocaleDateString('fr-DZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} à ${mission.departureTime}` },
-                { label: 'Date retour', value: `${new Date(mission.returnDate).toLocaleDateString('fr-DZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} à ${mission.returnTime}` },
+                { label: 'Date retour', value: mission.returnDate ? `${new Date(mission.returnDate).toLocaleDateString('fr-DZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} à ${mission.returnTime || '—'}` : 'Non renseignée — le conducteur déclarera son arrivée' },
                 { label: 'Passagers', value: `${mission.passengers} personne(s)` },
                 { label: 'Véhicule demandé', value: mission.vehicleNeeded ? `Oui – ${mission.vehicleType || 'Non spécifié'}` : 'Non' },
               ].map(({ label, value }) => (

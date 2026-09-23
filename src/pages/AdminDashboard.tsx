@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   ArrowRight,
   ArrowUpRight,
+  Bus,
   Car,
   ChartBar,
   Check,
@@ -31,7 +32,7 @@ import { drivers, missions, vehicles } from '../data/mock';
 import type { Status } from '../data/mock';
 
 interface Props {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, id?: string) => void;
 }
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -113,6 +114,7 @@ function MetricCard({
   icon: Icon,
   tone = 'neutral',
   featured = false,
+  onClick,
 }: {
   label: string;
   value: string;
@@ -121,10 +123,15 @@ function MetricCard({
   icon: any;
   tone?: 'accent' | 'success' | 'info' | 'neutral';
   featured?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <article
+      onClick={onClick}
+      title={onClick ? `Filtrer : ${label}` : undefined}
       className={`rounded-2xl border bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)] ${
+        onClick ? 'cursor-pointer' : ''
+      } ${
         featured
           ? 'border-l-4 border-l-[var(--accent)] border-y-[var(--line)] border-r-[var(--line)]'
           : 'border-[var(--line)]'
@@ -205,6 +212,12 @@ function DonutRing({
       </div>
     </div>
   );
+}
+
+function VehicleTypeIcon({ type }: { type: string }) {
+  const t = type.toLowerCase();
+  const Icon = t.includes('bus') || t.includes('minivan') ? Bus : Car;
+  return <Icon size={16} />;
 }
 
 function CustomTooltip({ active, payload, label }: any) {
@@ -330,6 +343,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
           icon={ListChecks}
           tone="accent"
           featured
+          onClick={() => onNavigate('fleet-missions', 'all')}
         />
         <MetricCard
           label="Missions actives"
@@ -337,6 +351,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
           helper="en déplacement"
           icon={MapPin}
           tone="info"
+          onClick={() => onNavigate('fleet-missions', 'en_cours')}
         />
         <MetricCard
           label="À valider"
@@ -344,6 +359,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
           helper="action requise"
           icon={Clock}
           tone="neutral"
+          onClick={() => onNavigate('fleet-missions', 'en_attente')}
         />
         <MetricCard
           label="Disponibilité flotte"
@@ -351,6 +367,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
           helper={`${availableVehicles.length} véhicules libres`}
           icon={Car}
           tone="success"
+          onClick={() => onNavigate('admin-vehicles')}
         />
       </section>
 
@@ -535,7 +552,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
               return (
                 <div key={vehicle.id} className="flex items-center gap-3 py-3">
                   <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--surface-muted)] text-[var(--ink-soft)]">
-                    <Car size={16} />
+                    <VehicleTypeIcon type={vehicle.type} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-semibold text-[var(--ink)]">

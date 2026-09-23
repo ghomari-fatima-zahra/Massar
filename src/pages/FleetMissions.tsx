@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import StatusBadge from '../components/StatusBadge';
-import { missions, vehicles, drivers } from '../data/mock';
+import { missions, vehicles, drivers, STATUS_LABELS } from '../data/mock';
 import type { Mission, Status } from '../data/mock';
 
 // Real Algerian city lat/lng coordinates
@@ -30,11 +30,37 @@ const CITY_COORDS: Record<string, [number, number]> = {
 };
 
 function getCityCoords(name: string): [number, number] {
-  const known = CITY_COORDS[name];
-  if (known) return known;
-  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  return [34 + (hash % 4), 2 + (hash % 6)];
+  const direct = CITY_COORDS[name];
+  if (direct) return direct;
+  // Match structure names containing a city (e.g. "Centre Télécom Tlemcen")
+  const lower = name.toLowerCase();
+  for (const [city, coords] of Object.entries(CITY_COORDS)) {
+    if (lower.includes(city.toLowerCase())) return coords;
+  }
+  // Unknown place: fall back to Alger so pins always stay inside Algeria
+  return CITY_COORDS['Alger'];
 }
+
+// Algeria bounding box (small margin included) — the map is locked to Algeria
+const ALGERIA_BOUNDS: [[number, number], [number, number]] = [
+  [18.5, -9.5],
+  [37.8, 12.8],
+];
+const ALGERIA_CENTER: [number, number] = [27.9, 2.4];
+const ALGERIA_OVERVIEW_ZOOM = 5;
+
+// Pin color per mission status
+const STATUS_COLOR: Record<string, string> = {
+  en_cours: '#22D3EE',
+  terminee: '#10B981',
+  en_attente: '#F59E0B',
+  validee: '#0EA5E9',
+  confirmee: '#0EA5E9',
+  affectee: '#8B5CF6',
+  rejetee: '#EF4444',
+  annulee: '#EF4444',
+  brouillon: '#94A3B8',
+};
 
 // Interpolate along the line at progress t (0–1)
 function interpolateLine(from: [number, number], to: [number, number], t: number): [number, number] {
@@ -105,7 +131,7 @@ function makeVehicleIcon() {
     html: `
       <div style="position:relative;">
         <div style="width:32px;height:32px;border-radius:50%;background:#F97316;border:3px solid white;box-shadow:0 2px 12px rgba(249,115,22,0.5);display:flex;align-items:center;justify-content:center;">
-          <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+          <svg width="15" height="15" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v-3l1.8-4.2A2 2 0 017.6 7.5h8.1l3.1 3.7H20a1 1 0 011 1V16"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/><path stroke-linecap="round" d="M11 7.5v4"/></svg>
         </div>
         <div style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#22C55E;border:2px solid white;animation:pulse 1.5s ease-in-out infinite;"></div>
       </div>`,
@@ -126,7 +152,89 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
-function RouteMap({ mission }: { mission: Mission }) {
+// Rich popup: shows the full details of the corresponding mission
+function MissionPopupContent({ mission }: { mission: Mission }) {
+  return (
+    <div style={{ minWidth: 190, fontFamily: 'Inter,sans-serif' }}>
+      <p style={{ fontSize: 10, color: '#64748B', fontFamily: 'monospace', margin: 0 }}>
+        {mission.id}
+      </p>
+      <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: '2px 0' }}>
+        {mission.object}
+      </p>
+      <p style={{ fontSize: 11, color: '#475569', margin: 0 }}>
+        {mission.departure} → {mission.destination}
+      </p>
+      <p style={{ fontSize: 11, color: '#64748B', margin: '2px 0 0' }}>
+        {new Date(mission.departureDate).toLocaleDateString('fr-DZ', {
+          day: '2-digit',
+          month: 'short',
+        })}{' '}
+        · {mission.departureTime} — {mission.employee}
+      </p>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#075985', margin: '4px 0 0' }}>
+        {STATUS_LABELS[mission.status] ?? mission.status}
+      </p>
+    </div>
+  );
+}
+
+function RouteMap({
+  mission,
+  missions,
+  onSelect,
+}: {
+  mission: Mission | null;
+  missions: Mission[];
+  onSelect: (id: string) => void;
+}) {
+  // Overview: no mission selected — whole Algeria with one clickable pin per mission
+  if (!mission) {
+    return (
+      <MapContainer
+        center={ALGERIA_CENTER}
+        zoom={ALGERIA_OVERVIEW_ZOOM}
+        minZoom={5}
+        maxZoom={12}
+        maxBounds={ALGERIA_BOUNDS}
+        maxBoundsViscosity={1.0}
+        style={{ width: '100%', height: '100%' }}
+        zoomControl={true}
+        attributionControl={false}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; OpenStreetMap contributors'
+        />
+        {missions.map((m) => {
+          const color = STATUS_COLOR[m.status] ?? '#94A3B8';
+          return (
+            <Fragment key={m.id}>
+              <Marker
+                position={getCityCoords(m.departure)}
+                icon={makeIcon(color)}
+                eventHandlers={{ click: () => onSelect(m.id) }}
+              >
+                <Popup>
+                  <MissionPopupContent mission={m} />
+                </Popup>
+              </Marker>
+              <Marker
+                position={getCityCoords(m.destination)}
+                icon={makeIcon(color)}
+                eventHandlers={{ click: () => onSelect(m.id) }}
+              >
+                <Popup>
+                  <MissionPopupContent mission={m} />
+                </Popup>
+              </Marker>
+            </Fragment>
+          );
+        })}
+      </MapContainer>
+    );
+  }
+
   const from = getCityCoords(mission.departure);
   const to = getCityCoords(mission.destination);
   const routePoints = buildRoutePoints(from, to);
@@ -147,6 +255,10 @@ function RouteMap({ mission }: { mission: Mission }) {
     <MapContainer
       center={center}
       zoom={7}
+      minZoom={5}
+      maxZoom={12}
+      maxBounds={ALGERIA_BOUNDS}
+      maxBoundsViscosity={1.0}
       style={{ width: '100%', height: '100%' }}
       zoomControl={true}
       attributionControl={false}
@@ -199,50 +311,94 @@ function RouteMap({ mission }: { mission: Mission }) {
         />
       )}
 
-      {/* Departure pin */}
-      <Marker position={from} icon={makePinIcon('#075985', mission.departure)}>
-        <Popup>{mission.departure} — Départ</Popup>
+      {/* Departure pin — click selects the mission, popup shows its details */}
+      <Marker
+        position={from}
+        icon={makePinIcon('#075985', mission.departure)}
+        eventHandlers={{ click: () => onSelect(mission.id) }}
+      >
+        <Popup>
+          <MissionPopupContent mission={mission} />
+        </Popup>
       </Marker>
 
-      {/* Destination pin */}
-      <Marker position={to} icon={makePinIcon(isDone ? '#10B981' : '#22D3EE', mission.destination)}>
-        <Popup>{mission.destination} — Arrivée</Popup>
+      {/* Destination pin — click selects the mission, popup shows its details */}
+      <Marker
+        position={to}
+        icon={makePinIcon(isDone ? '#10B981' : '#22D3EE', mission.destination)}
+        eventHandlers={{ click: () => onSelect(mission.id) }}
+      >
+        <Popup>
+          <MissionPopupContent mission={mission} />
+        </Popup>
       </Marker>
 
       {/* Moving vehicle */}
       {isActive && t > 0 && t < 1 && (
         <Marker position={currentPos} icon={makeVehicleIcon()}>
-          <Popup>En route</Popup>
+          <Popup>
+            <MissionPopupContent mission={mission} />
+          </Popup>
         </Marker>
       )}
+
+      {/* Other missions — small clickable dots so any pin selects its mission */}
+      {missions
+        .filter((m) => m.id !== mission.id)
+        .map((m) => {
+          const color = STATUS_COLOR[m.status] ?? '#94A3B8';
+          return (
+            <Fragment key={m.id}>
+              <Marker
+                position={getCityCoords(m.departure)}
+                icon={makeIcon(color)}
+                eventHandlers={{ click: () => onSelect(m.id) }}
+              >
+                <Popup>
+                  <MissionPopupContent mission={m} />
+                </Popup>
+              </Marker>
+              <Marker
+                position={getCityCoords(m.destination)}
+                icon={makeIcon(color)}
+                eventHandlers={{ click: () => onSelect(m.id) }}
+              >
+                <Popup>
+                  <MissionPopupContent mission={m} />
+                </Popup>
+              </Marker>
+            </Fragment>
+          );
+        })}
     </MapContainer>
   );
 }
 
-const STAGES = ['Brouillon', 'En attente', 'Validée', 'Affectée', 'En cours', 'Terminée'] as const;
+const STAGES = ['En attente', 'Affectée', 'En cours', 'Terminée'] as const;
 const STAGE_STATUSES: Record<string, Status> = {
-  'Brouillon': 'brouillon', 'En attente': 'en_attente', 'Validée': 'validee',
+  'En attente': 'en_attente',
   'Affectée': 'affectee', 'En cours': 'en_cours', 'Terminée': 'terminee',
 };
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
-  all: 'Toutes', en_attente: 'En attente', validee: 'Validées',
+  all: 'Toutes', en_attente: 'En attente',
   affectee: 'Affectées', en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées',
 };
 
 const STATUS_DOT: Record<string, string> = {
   en_cours: 'bg-cyan-400', terminee: 'bg-emerald-400', en_attente: 'bg-amber-400',
-  validee: 'bg-sky-400', affectee: 'bg-violet-400', rejetee: 'bg-red-400',
+  affectee: 'bg-violet-400', rejetee: 'bg-red-400',
   annulee: 'bg-red-400', brouillon: 'bg-slate-400',
 };
 
 interface Props {
   onNavigate: (page: string, id?: string) => void;
+  initialFilter?: string;
 }
 
-export default function FleetMissions({ onNavigate }: Props) {
+export default function FleetMissions({ onNavigate, initialFilter }: Props) {
   const [selectedId, setSelectedId] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>(initialFilter ?? 'all');
   const [search, setSearch] = useState('');
 
   const filtered = missions.filter(m => {
@@ -257,7 +413,6 @@ export default function FleetMissions({ onNavigate }: Props) {
   const vehicle = selected?.vehicleId ? vehicles.find(v => v.id === selected!.vehicleId) : null;
   const driver = selected?.driverId ? drivers.find(d => d.id === selected!.driverId) : null;
   const t = STATUS_PROGRESS[selected?.status as Status] ?? 0;
-  const mapMission = selected ?? missions[0];
 
   const counts = {
     en_cours: missions.filter(m => m.status === 'en_cours').length,
@@ -269,18 +424,27 @@ export default function FleetMissions({ onNavigate }: Props) {
     <div className="flex gap-4 h-full" style={{ maxHeight: 'calc(100vh - 120px)' }}>
       {/* LEFT: mission list */}
       <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
-        {/* Quick stats */}
+        {/* Quick stats — act as filters */}
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: 'En cours', count: counts.en_cours, color: 'text-cyan-600', bg: 'bg-cyan-50 border-cyan-100' },
-            { label: 'En attente', count: counts.en_attente, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-            { label: 'Terminées', count: counts.terminee, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100' },
-          ].map(s => (
-            <div key={s.label} className={`rounded-xl border px-3 py-2.5 ${s.bg}`}>
-              <p className={`text-lg font-bold leading-none ${s.color}`}>{s.count}</p>
-              <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{s.label}</p>
-            </div>
-          ))}
+            { label: 'En cours', key: 'en_cours', count: counts.en_cours, color: 'text-cyan-600', bg: 'bg-cyan-50 border-cyan-100' },
+            { label: 'En attente', key: 'en_attente', count: counts.en_attente, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
+            { label: 'Terminées', key: 'terminee', count: counts.terminee, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100' },
+          ].map(s => {
+            const active = filterStatus === s.key;
+            return (
+              <button
+                key={s.label}
+                type="button"
+                title={`Filtrer : ${s.label}`}
+                onClick={() => setFilterStatus(active ? 'all' : s.key)}
+                className={`rounded-xl border px-3 py-2.5 text-left transition-all ${s.bg} ${active ? 'ring-2 ring-navy shadow-md' : 'hover:shadow'}`}
+              >
+                <p className={`text-lg font-bold leading-none ${s.color}`}>{s.count}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{s.label}</p>
+              </button>
+            );
+          })}
         </div>
 
         {/* Search */}
@@ -297,19 +461,36 @@ export default function FleetMissions({ onNavigate }: Props) {
           />
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-1.5 flex-wrap">
-          {Object.entries(STATUS_FILTER_LABELS).map(([val, label]) => (
+        {/* Status filter */}
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="mission-status-filter"
+            className="text-[11px] font-semibold uppercase tracking-wider text-muted flex-shrink-0"
+          >
+            Statut
+          </label>
+          <select
+            id="mission-status-filter"
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-border bg-white text-xs font-medium text-ink shadow-sm focus:outline-none focus:border-navy"
+          >
+            {Object.entries(STATUS_FILTER_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+          {filterStatus !== 'all' && (
             <button
-              key={val}
-              onClick={() => setFilterStatus(val)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                filterStatus === val ? 'bg-navy text-white' : 'bg-white border border-border text-muted hover:text-ink'
-              }`}
+              type="button"
+              onClick={() => setFilterStatus('all')}
+              title="Réinitialiser le filtre"
+              className="p-2 rounded-lg text-muted hover:bg-slate-100 hover:text-ink transition-colors flex-shrink-0"
             >
-              {label}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
             </button>
-          ))}
+          )}
         </div>
 
         {/* Mission cards */}
@@ -408,15 +589,19 @@ export default function FleetMissions({ onNavigate }: Props) {
                      selected.status === 'rejetee' ? '✗ Rejetée' :
                      selected.status === 'annulee' ? '✗ Annulée' :
                      selected.status === 'en_attente' ? '⏳ En attente' :
-                     selected.status === 'validee' ? '✓ Validée' :
-                     selected.status === 'affectee' ? '🚗 Affectée' : selected.status}
+                      selected.status === 'affectee' ? '🚗 Affectée' : selected.status}
                   </span>
                 </div>
               </div>
               )}
 
-              {/* Map — always shows, key on selected id or first mission */}
-              <RouteMap key={selected?.id ?? mapMission.id} mission={selected ?? mapMission} />
+              {/* Map — overview of Algeria when nothing is selected, route when one is */}
+              <RouteMap
+                key={selected?.id ?? 'overview'}
+                mission={selected}
+                missions={filtered}
+                onSelect={setSelectedId}
+              />
 
               {/* No selection hint */}
               {!selected && (
@@ -514,7 +699,9 @@ export default function FleetMissions({ onNavigate }: Props) {
                       <div className="flex-shrink-0">
                         <p className="text-[10px] font-semibold text-muted uppercase tracking-wide leading-none mb-0.5">Retour</p>
                         <p className="text-ink text-sm font-semibold leading-tight">
-                          {new Date(selected.returnDate).toLocaleDateString('fr-DZ', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          {selected.returnDate
+                            ? new Date(selected.returnDate).toLocaleDateString('fr-DZ', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : '—'}
                         </p>
                         <p className="text-muted text-[11px] leading-tight">{selected.returnTime || '—'}</p>
                       </div>
@@ -556,7 +743,7 @@ export default function FleetMissions({ onNavigate }: Props) {
                             Valider
                           </button>
                         )}
-                        {selected.status === 'validee' && (
+                        {selected.status === 'affectee' && !vehicle && (
                           <button className="px-4 py-2 bg-orange text-white text-sm font-semibold rounded-xl hover:bg-orange-dark transition-colors whitespace-nowrap">
                             Affecter
                           </button>

@@ -104,7 +104,7 @@ export default function ValidationPage({ selectedId, onNavigate }: Props) {
                 { label: 'Structure', value: activeMission.structure },
                 { label: 'Type', value: activeMission.type === 'interne' ? 'Mission interne' : 'Mission externe' },
                 { label: 'Départ', value: `${activeMission.departure} – ${new Date(activeMission.departureDate).toLocaleDateString('fr-DZ')} à ${activeMission.departureTime}` },
-                { label: 'Retour', value: `${activeMission.destination} – ${new Date(activeMission.returnDate).toLocaleDateString('fr-DZ')} à ${activeMission.returnTime}` },
+                { label: 'Retour', value: activeMission.returnDate ? `${activeMission.destination} – ${new Date(activeMission.returnDate).toLocaleDateString('fr-DZ')} à ${activeMission.returnTime || '—'}` : `${activeMission.destination} – À déclarer par le conducteur` },
                 { label: 'Passagers', value: `${activeMission.passengers} personne(s)` },
                 { label: 'Véhicule requis', value: activeMission.vehicleNeeded ? `Oui – ${activeMission.vehicleType}` : 'Non' },
               ].map(({ label, value }) => (

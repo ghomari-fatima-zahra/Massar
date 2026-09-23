@@ -9,7 +9,11 @@ interface Props {
 }
 
 export default function AssignmentPage({ selectedId, onNavigate }: Props) {
-  const assignable = missions.filter(m => m.status === 'validee');
+  // Missions awaiting assignment: validated requests without a vehicle yet
+  // (workflow: en_attente → affectée → en_cours → terminée)
+  const assignable = missions.filter(
+    (m) => ['en_attente', 'affectee'].includes(m.status) && !m.vehicleId,
+  );
   const [activeMissionId, setActiveMissionId] = useState(selectedId || assignable[0]?.id || '');
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
@@ -54,7 +58,7 @@ export default function AssignmentPage({ selectedId, onNavigate }: Props) {
           </svg>
         </div>
         <h3 className="text-ink text-xl font-bold mb-2">Toutes les missions sont affectées</h3>
-        <p className="text-muted text-sm mb-6">Il n'y a aucune mission validée en attente d'affectation.</p>
+        <p className="text-muted text-sm mb-6">Il n'y a aucune mission en attente d'affectation.</p>
         <button onClick={() => onNavigate('fleet-dashboard')} className="px-5 py-2.5 bg-navy text-white font-semibold rounded-lg text-sm hover:bg-navy-dark transition-colors">
           Retour au tableau de bord
         </button>
@@ -98,7 +102,7 @@ export default function AssignmentPage({ selectedId, onNavigate }: Props) {
               <InfoChip label="Demandeur" value={mission.employee} />
               <InfoChip label="Trajet" value={`${mission.departure} → ${mission.destination}`} />
               <InfoChip label="Départ" value={`${new Date(mission.departureDate).toLocaleDateString('fr-DZ')} ${mission.departureTime}`} />
-              <InfoChip label="Retour" value={`${new Date(mission.returnDate).toLocaleDateString('fr-DZ')} ${mission.returnTime}`} />
+              <InfoChip label="Retour" value={mission.returnDate ? `${new Date(mission.returnDate).toLocaleDateString('fr-DZ')} ${mission.returnTime || ''}`.trim() : 'À déclarer par le conducteur'} />
             </div>
           </div>
 

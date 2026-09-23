@@ -31,7 +31,7 @@ export default function LoginPage({ onLogin }: Props) {
             Gestion des missions<br />et de la flotte
           </h2>
           <p className="text-white/50 text-base leading-relaxed">
-            Plateforme interne de gestion des déplacements professionnels et des véhicules de service — DOT Algérie Télécom.
+            Plateforme interne de gestion des déplacements professionnels et des véhicules de service — DG Algérie Télécom.
           </p>
           <div className="mt-12 space-y-4">
             {[
@@ -54,7 +54,7 @@ export default function LoginPage({ onLogin }: Props) {
           </div>
         </div>
         <div className="px-10 pb-8">
-          <p className="text-white/25 text-xs">DOT · Algérie Télécom · Accès administrateur</p>
+          <p className="text-white/25 text-xs">DG · Algérie Télécom · Accès administrateur</p>
         </div>
       </div>
 
@@ -121,7 +121,7 @@ export default function LoginPage({ onLogin }: Props) {
             </button>
           </form>
 
-          <p className="text-center text-muted text-xs mt-8">© 2024 Algérie Télécom · DOT – Tous droits réservés</p>
+          <p className="text-center text-muted text-xs mt-8">© 2026 Algérie Télécom · DG – Tous droits réservés</p>
         </div>
       </div>
     </div>

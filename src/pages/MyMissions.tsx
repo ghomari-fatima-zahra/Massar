@@ -7,7 +7,7 @@ interface Props {
   onNavigate: (page: string, id?: string) => void;
 }
 
-const ALL_STATUSES: Status[] = ['brouillon', 'en_attente', 'validee', 'rejetee', 'affectee', 'confirmee', 'en_cours', 'terminee', 'annulee'];
+const ALL_STATUSES: Status[] = ['brouillon', 'en_attente', 'rejetee', 'affectee', 'en_cours', 'terminee', 'annulee'];
 
 export default function MyMissions({ onNavigate }: Props) {
   const user = currentUsers['employee'];
@@ -99,8 +99,8 @@ export default function MyMissions({ onNavigate }: Props) {
                   <span className="text-muted text-xs">{m.departureTime}</span>
                 </td>
                 <td className="px-5 py-3.5 text-ink whitespace-nowrap">
-                  {new Date(m.returnDate).toLocaleDateString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}<br/>
-                  <span className="text-muted text-xs">{m.returnTime}</span>
+                  {m.returnDate ? new Date(m.returnDate).toLocaleDateString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}<br/>
+                  <span className="text-muted text-xs">{m.returnTime || 'À déclarer'}</span>
                 </td>
                 <td className="px-5 py-3.5 text-muted text-xs">
                   {m.vehicleNeeded ? (m.vehicleId ? `✓ Affecté` : 'Demandé') : '—'}

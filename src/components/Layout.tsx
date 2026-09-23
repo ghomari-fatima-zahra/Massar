@@ -241,7 +241,7 @@ export default function Layout({
             </button>
             {sidebarOpen && (
               <p className="mt-3 px-3 text-[10px] text-[var(--ink-muted)]">
-                DOT · Algérie Télécom
+                DG · Algérie Télécom
               </p>
             )}
           </div>

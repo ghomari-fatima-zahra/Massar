@@ -13,8 +13,8 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
 
   const stats = {
     pending: myMissions.filter(m => m.status === 'en_attente').length,
-    approved: myMissions.filter(m => ['validee', 'affectee', 'confirmee'].includes(m.status)).length,
-    upcoming: myMissions.filter(m => ['affectee', 'confirmee'].includes(m.status)).length,
+    approved: myMissions.filter(m => ['affectee', 'en_cours'].includes(m.status)).length,
+    upcoming: myMissions.filter(m => ['affectee'].includes(m.status)).length,
   };
 
   return (
@@ -113,7 +113,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
                 <td className="px-5 py-3.5 text-ink">{m.destination}</td>
                 <td className="px-5 py-3.5">
                   <p className="text-ink">{new Date(m.departureDate).toLocaleDateString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
-                  {m.departureDate !== m.returnDate && (
+                  {m.returnDate && m.departureDate !== m.returnDate && (
                     <p className="text-muted text-xs">→ {new Date(m.returnDate).toLocaleDateString('fr-DZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}</p>
                   )}
                 </td>

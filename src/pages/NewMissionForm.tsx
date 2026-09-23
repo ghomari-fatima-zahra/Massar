@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 interface Props {
   onNavigate: (page: string) => void;
+  onBack: () => void;
 }
 
 type VehicleCategory = 'bus' | 'vehicule' | '';
@@ -10,7 +11,7 @@ type VehicleUsage = 'fonctionnel' | 'service' | '';
 const BUS_TYPES = ['Minibus (9 places)', 'Bus standard (30 places)', 'Grand bus (50 places)'];
 const CAR_TYPES = ['Berline', 'SUV', 'Monospace', 'Minivan', 'Utilitaire'];
 
-export default function NewMissionForm({ onNavigate }: Props) {
+export default function NewMissionForm({ onNavigate, onBack }: Props) {
   const [form, setForm] = useState({
     type: 'externe',
     object: '',
@@ -42,7 +43,7 @@ export default function NewMissionForm({ onNavigate }: Props) {
     if (!form.departure.trim()) e.departure = 'Le lieu de départ est requis.';
     if (!form.destination.trim()) e.destination = 'La destination est requise.';
     if (!form.departureDate) e.departureDate = 'La date de départ est requise.';
-    if (!form.returnDate) e.returnDate = 'La date de retour est requise.';
+    // La date de retour est facultative : le conducteur déclarera son arrivée.
     if (form.vehicleNeeded) {
       if (!form.vehicleCategory) e.vehicleCategory = 'Choisissez un type de véhicule.';
       if (form.vehicleCategory && !form.vehicleSubtype) e.vehicleSubtype = 'Précisez le modèle souhaité.';
@@ -166,7 +167,7 @@ export default function NewMissionForm({ onNavigate }: Props) {
                 <input type="time" className="w-24 px-3 py-2.5 rounded-lg border border-border text-sm text-ink focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 transition-all" value={form.departureTime} onChange={e => set('departureTime', e.target.value)}/>
               </div>
             </Field>
-            <Field label="Date de retour prévue" error={errors.returnDate} required>
+            <Field label="Date de retour prévue" error={errors.returnDate} optional>
               <div className="flex gap-2">
                 <input type="date" className={`flex-1 ${inputClass('returnDate')}`} value={form.returnDate} onChange={e => set('returnDate', e.target.value)}/>
                 <input
@@ -177,7 +178,7 @@ export default function NewMissionForm({ onNavigate }: Props) {
                   placeholder="--:--"
                 />
               </div>
-              <p className="mt-1 text-[11px] text-muted">L'heure de retour est facultative</p>
+              <p className="mt-1 text-[11px] text-muted">Facultatif — le conducteur déclarera son arrivée</p>
             </Field>
           </div>
 
@@ -218,12 +219,16 @@ export default function NewMissionForm({ onNavigate }: Props) {
                     {([
                       { val: 'bus', label: 'Bus', desc: 'Transport collectif', icon: (
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 6v12m8-12v12M3 8h18M3 16h18M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2zM8 20v1m8-1v1"/>
+                          <rect x="4" y="3" width="16" height="14" rx="2.5"/>
+                          <path strokeLinecap="round" d="M4 10.5h16M8 3v3.5M16 3v3.5"/>
+                          <circle cx="8" cy="19.5" r="1.6"/><circle cx="16" cy="19.5" r="1.6"/>
                         </svg>
                       )},
                       { val: 'vehicule', label: 'Véhicule', desc: 'Voiture de service', icon: (
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0zM4.5 9.5l1.5-4.5h12l1.5 4.5M4.5 9.5H19.5M4.5 9.5H3m16.5 0H21"/>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v-3.2l1.9-4.4A2 2 0 016.7 7.5h8.5l3.3 3.9h1.7a1.3 1.3 0 011.3 1.3v3.8"/>
+                          <circle cx="7.5" cy="17" r="1.8"/><circle cx="16.8" cy="17" r="1.8"/>
+                          <path strokeLinecap="round" d="M11.5 7.5v4"/>
                         </svg>
                       )},
                     ] as const).map(opt => (
@@ -349,7 +354,7 @@ export default function NewMissionForm({ onNavigate }: Props) {
         </div>
 
         <div className="px-6 py-4 border-t border-border bg-slate-50/50 flex items-center justify-between rounded-b-xl">
-          <button onClick={() => onNavigate('dashboard')} className="px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors">
+          <button onClick={onBack} className="px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors">
             Annuler
           </button>
           <div className="flex gap-3">
