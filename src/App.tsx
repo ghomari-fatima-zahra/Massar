@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { vehicles, drivers } from './data/mock';
+import { vehicles, drivers, missions } from './data/mock';
 import type { Driver } from './data/mock';
 import Layout from './components/Layout';
 import NewMissionForm from './pages/NewMissionForm';
@@ -37,11 +37,69 @@ export default function App() {
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
   const [fleetFilter, setFleetFilter] = useState<string>('all');
   const [history, setHistory] = useState<Page[]>([]);
-  // Admin validations: driver + vehicle assigned together → mission goes En cours
+  // Admin assignments at creation: mission starts with driver+vehicle assigned
   const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
 
-  function handleAssign(missionId: string, vehicleId: string, driverId: string) {
-    setAssignments(a => ({ ...a, [missionId]: { vehicleId, driverId } }));
+  // Driver starts the mission
+  function handleStartMission(missionId: string) {
+    const m = missions.find(m => m.id === missionId);
+    const a = assignments[missionId];
+    if (!m || !a) return;
+    // In a real app this would mutate server state; here we just treat it as "en_cours"
+    // The FleetMissions page computes effective status from assignments
+  }
+
+  function handleSubmitMission(data: {
+    requestKind: 'service' | 'fonctionnel';
+    type: string;
+    object: string;
+    departure: string;
+    destination: string;
+    departureDate: string;
+    departureTime: string;
+    returnDate: string;
+    returnTime: string;
+    passengers: number;
+    vehicleNeeded: boolean;
+    vehicleCategory: string;
+    vehicleSubtype: string;
+    assignedDriverId: string;
+    assignedVehicleId: string;
+    beneficiaire: string;
+    startDate: string;
+    notes: string;
+  }) {
+    if (data.requestKind === 'fonctionnel') {
+      // Fonctionnel assignment - just log it (mock)
+      console.log('Fonctionnel assignment:', data);
+      return;
+    }
+    // Create new mission
+    const newId = `M${new Date().getFullYear()}-${String(missions.length + 1).padStart(3, '0')}`;
+    const newMission = {
+      id: newId,
+      employee: 'Nadia Ferdi', // current user
+      matricule: 'ALT-0120',
+      structure: 'Direction Générale',
+      type: data.type as 'interne' | 'externe',
+      object: data.object,
+      departure: data.departure,
+      destination: data.destination,
+      departureDate: data.departureDate,
+      returnDate: data.returnDate,
+      departureTime: data.departureTime,
+      returnTime: data.returnTime,
+      passengers: data.passengers,
+      vehicleNeeded: data.vehicleNeeded,
+      vehicleType: data.vehicleSubtype,
+      status: 'en_attente' as const,
+      vehicleId: data.assignedVehicleId,
+      driverId: data.assignedDriverId,
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    missions.push(newMission);
+    // Save assignment
+    setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
   }
 
   function handleLogout() {
@@ -74,9 +132,9 @@ export default function App() {
       case 'admin-dashboard':
         return <AdminDashboard onNavigate={navigate} />;
       case 'fleet-missions':
-        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} onAssign={handleAssign} onNavigate={navigate} />;
+        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm onNavigate={navigate} onBack={goBack} />;
+        return <NewMissionForm onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
       case 'mission-detail':
         return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} onNavigate={navigate} onBack={goBack} />;
       case 'admin-drivers':

@@ -1,9 +1,30 @@
 import { useState } from 'react';
-import { users } from '../data/mock';
+import { users, vehicles, drivers } from '../data/mock';
+import type { Vehicle, Driver } from '../data/mock';
 
 interface Props {
   onNavigate: (page: string) => void;
   onBack: () => void;
+  onSubmitMission?: (data: {
+    requestKind: RequestKind;
+    type: string;
+    object: string;
+    departure: string;
+    destination: string;
+    departureDate: string;
+    departureTime: string;
+    returnDate: string;
+    returnTime: string;
+    passengers: number;
+    vehicleNeeded: boolean;
+    vehicleCategory: string;
+    vehicleSubtype: string;
+    assignedDriverId: string;
+    assignedVehicleId: string;
+    beneficiaire: string;
+    startDate: string;
+    notes: string;
+  }) => void;
 }
 
 type VehicleCategory = 'bus' | 'vehicule' | '';
@@ -13,8 +34,29 @@ type RequestKind = 'service' | 'fonctionnel';
 const BUS_TYPES = ['Minibus (9 places)', 'Bus standard (30 places)', 'Grand bus (50 places)'];
 const CAR_TYPES = ['Berline', 'SUV', 'Monospace', 'Minivan', 'Utilitaire'];
 
-export default function NewMissionForm({ onNavigate, onBack }: Props) {
-  const [form, setForm] = useState({
+export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: Props) {
+  interface FormState {
+    requestKind: RequestKind;
+    type: string;
+    object: string;
+    departure: string;
+    destination: string;
+    departureDate: string;
+    departureTime: string;
+    returnDate: string;
+    returnTime: string;
+    passengers: number;
+    vehicleNeeded: boolean;
+    vehicleCategory: VehicleCategory;
+    vehicleSubtype: string;
+    beneficiaire: string;
+    startDate: string;
+    notes: string;
+    assignedDriverId: string;
+    assignedVehicleId: string;
+  }
+
+  const [form, setForm] = useState<FormState>({
     requestKind: 'service' as RequestKind,
     type: 'externe',
     object: '',
@@ -32,6 +74,9 @@ export default function NewMissionForm({ onNavigate, onBack }: Props) {
     beneficiaire: '',
     startDate: '',
     notes: '',
+    // Assignment fields for service missions
+    assignedDriverId: '',
+    assignedVehicleId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -72,7 +117,10 @@ export default function NewMissionForm({ onNavigate, onBack }: Props) {
     if (!form.destination.trim()) e.destination = 'La destination est requise.';
     if (!form.departureDate) e.departureDate = 'La date de départ est requise.';
     // La date de retour est facultative : le conducteur déclarera son arrivée.
-    if (form.vehicleNeeded) {
+    if (form.requestKind === 'service' && form.vehicleNeeded) {
+      if (!form.assignedDriverId) e.assignedDriverId = 'Choisissez un conducteur disponible.';
+      if (!form.assignedVehicleId) e.assignedVehicleId = 'Choisissez un véhicule disponible.';
+    } else if (form.vehicleNeeded) {
       if (!form.vehicleCategory) e.vehicleCategory = 'Choisissez un type de véhicule.';
       if (form.vehicleCategory && !form.vehicleSubtype) e.vehicleSubtype = 'Précisez le modèle souhaité.';
     }
@@ -95,6 +143,10 @@ export default function NewMissionForm({ onNavigate, onBack }: Props) {
     }
     setDraft(isDraft);
     setSubmitted(true);
+    if (!isDraft && onSubmitMission) {
+      const { requestKind, type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, beneficiaire, startDate, notes } = form;
+      onSubmitMission({ requestKind, type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, beneficiaire, startDate, notes });
+    }
   }
 
   if (submitted) {
@@ -130,7 +182,7 @@ export default function NewMissionForm({ onNavigate, onBack }: Props) {
               setSubmitted(false);
               setEmpQuery('');
               setEmpOpen(false);
-              setForm({ requestKind: 'service', type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, vehicleNeeded: true, vehicleCategory: '', vehicleSubtype: '', beneficiaire: '', startDate: '', notes: '' });
+              setForm({ requestKind: 'service', type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, vehicleNeeded: true, vehicleCategory: '', vehicleSubtype: '', beneficiaire: '', startDate: '', notes: '', assignedDriverId: '', assignedVehicleId: '' });
             }}
             className="px-5 py-2.5 border border-border text-ink rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
           >
@@ -452,6 +504,90 @@ export default function NewMissionForm({ onNavigate, onBack }: Props) {
               </div>
             )}
           </div>
+            </>
+          )}
+
+          {/* Driver & Vehicle Assignment (for service missions with vehicle) */}
+          {form.requestKind === 'service' && form.vehicleNeeded && (
+            <>
+              <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
+                <div className="px-4 py-4">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">3. Affectation</p>
+                  <p className="text-muted text-xs">Choisissez le conducteur et le véhicule pour cette mission</p>
+                </div>
+                <div className="px-4 pb-4 space-y-4 border-t border-border/60 pt-4">
+                  {/* Driver selection */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Conducteur</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
+                      {drivers
+                        .filter(d => d.status === 'disponible')
+                        .map(d => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => set('assignedDriverId', d.id)}
+                            className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all flex items-center gap-2.5 ${
+                              form.assignedDriverId === d.id
+                                ? 'border-navy bg-navy-light'
+                                : 'border-border hover:border-navy/40'
+                            }`}
+                          >
+                            <span className="w-7 h-7 rounded-full bg-navy/10 text-navy text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                              {d.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-ink text-sm font-semibold truncate">{d.name}</span>
+                              <span className="block text-[11px] text-muted truncate">{d.matricule} · Permis {d.licenceCategories.join('+')}</span>
+                            </span>
+                            {form.assignedDriverId === d.id && (
+                              <svg className="w-4 h-4 text-navy ml-auto flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      {drivers.filter(d => d.status === 'disponible').length === 0 && (
+                        <p className="text-muted text-sm">Aucun conducteur disponible</p>
+                      )}
+                    </div>
+                    {errors.assignedDriverId && <p className="mt-1.5 text-xs text-danger flex items-center gap-1">⚠ {errors.assignedDriverId}</p>}
+                  </div>
+
+                  {/* Vehicle selection */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Véhicule</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
+                      {vehicles
+                        .filter(v => v.status === 'disponible')
+                        .map(v => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => set('assignedVehicleId', v.id)}
+                            className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all ${
+                              form.assignedVehicleId === v.id
+                                ? 'border-navy bg-navy-light'
+                                : 'border-border hover:border-navy/40'
+                            }`}
+                          >
+                            <p className="text-ink text-sm font-semibold">{v.brand} {v.model}</p>
+                            <p className="font-mono text-[11px] text-muted mt-0.5">{v.registration} · {v.capacity} places · {v.type}</p>
+                            {form.assignedVehicleId === v.id && (
+                              <svg className="w-4 h-4 text-navy ml-auto flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      {vehicles.filter(v => v.status === 'disponible').length === 0 && (
+                        <p className="text-muted text-sm">Aucun véhicule disponible</p>
+                      )}
+                    </div>
+                    {errors.assignedVehicleId && <p className="mt-1.5 text-xs text-danger flex items-center gap-1">⚠ {errors.assignedVehicleId}</p>}
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
