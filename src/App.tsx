@@ -7,10 +7,12 @@ import MissionDetail from './pages/MissionDetail';
 import FleetMissions from './pages/FleetMissions';
 import AdminDashboard from './pages/AdminDashboard';
 import NotificationsPage from './pages/NotificationsPage';
+import ParametresPage from './pages/ParametresPage';
 
 type Page =
   | 'admin-dashboard' | 'fleet-missions' | 'new-mission' | 'mission-detail'
-  | 'admin-drivers' | 'admin-vehicles' | 'admin-structures' | 'notifications';
+  | 'admin-drivers' | 'admin-vehicles' | 'admin-structures' | 'notifications'
+  | 'parametres';
 
 const PAGE_TITLES: Record<string, string> = {
   'admin-dashboard': 'Tableau de bord',
@@ -21,6 +23,7 @@ const PAGE_TITLES: Record<string, string> = {
   'admin-vehicles': 'Véhicules',
   'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
+  parametres: 'Paramètres',
 };
 
 const PAGE_BREADCRUMBS: Record<string, string> = {
@@ -29,6 +32,7 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
   'admin-drivers': 'Administration',
   'admin-vehicles': 'Administration',
   'admin-structures': 'Administration',
+  parametres: 'Administration',
 };
 
 export default function App() {
@@ -145,6 +149,8 @@ export default function App() {
         return <AdminStructuresPage />;
       case 'notifications':
         return <NotificationsPage onNavigate={navigate} />;
+      case 'parametres':
+        return <ParametresPage onNavigate={navigate} />;
       default:
         return <AdminDashboard onNavigate={navigate} />;
     }

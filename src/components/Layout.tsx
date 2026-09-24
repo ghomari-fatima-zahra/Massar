@@ -4,7 +4,6 @@ import {
   Bell,
   CaretDown,
   CaretRight,
-  ChartBar,
   Check,
   Gear,
   House,
@@ -36,8 +35,9 @@ const PAGE_LABELS: Record<string, string> = {
   'mission-detail': 'Détail de la mission',
   'admin-drivers': 'Conducteurs',
   'admin-vehicles': 'Véhicules',
-  'admin-structures': 'Paramètres',
+  'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
+  parametres: 'Paramètres',
 };
 
 const navItems = [
@@ -48,8 +48,7 @@ const navItems = [
 ];
 
 const toolItems = [
-  { id: 'reports', label: 'Rapports', icon: ChartBar },
-  { id: 'admin-structures', label: 'Paramètres', icon: Gear },
+  { id: 'parametres', label: 'Paramètres', icon: Gear },
 ];
 
 export default function Layout({
