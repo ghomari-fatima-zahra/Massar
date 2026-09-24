@@ -1,93 +1,16 @@
-import { useState, useEffect, Fragment } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
-import { missions, vehicles, drivers, STATUS_LABELS } from '../data/mock';
+import { missions, vehicles, drivers } from '../data/mock';
 import type { Mission, Status } from '../data/mock';
 
-// Real Algerian city lat/lng coordinates
-const CITY_COORDS: Record<string, [number, number]> = {
-  'Alger':       [36.7538,  3.0588],
-  'Oran':        [35.6969, -0.6331],
-  'Tlemcen':     [34.8827, -1.3158],
-  'Constantine': [36.3650,  6.6147],
-  'Annaba':      [36.9000,  7.7667],
-  'Sétif':       [36.1898,  5.4098],
-  'Blida':       [36.4700,  2.8300],
-  'Béjaïa':      [36.7522,  5.0567],
-  'Boumerdès':   [36.7600,  3.4800],
-  'Médéa':       [36.2639,  2.7508],
-  'Chlef':       [36.1650,  1.3317],
-  'Mascara':     [35.3963,  0.1408],
-  'Relizane':    [35.7347,  0.5564],
-  'Biskra':      [34.8500,  5.7333],
-  'Ghardaïa':    [32.4900,  3.6700],
-  'Ouargla':     [31.9500,  5.3250],
-  'Batna':       [35.5559,  6.1742],
-  'Skikda':      [36.8764,  6.9064],
-  'Tizi Ouzou': [36.7169,  4.0497],
-  'Bouira':      [36.3778,  3.9006],
-};
-
-function getCityCoords(name: string): [number, number] {
-  const direct = CITY_COORDS[name];
-  if (direct) return direct;
-  // Match structure names containing a city (e.g. "Centre Télécom Tlemcen")
-  const lower = name.toLowerCase();
-  for (const [city, coords] of Object.entries(CITY_COORDS)) {
-    if (lower.includes(city.toLowerCase())) return coords;
-  }
-  // Unknown place: fall back to Alger so pins always stay inside Algeria
-  return CITY_COORDS['Alger'];
-}
-
-// Algeria bounding box (small margin included) — the map is locked to Algeria
-const ALGERIA_BOUNDS: [[number, number], [number, number]] = [
-  [18.5, -9.5],
-  [37.8, 12.8],
-];
-const ALGERIA_CENTER: [number, number] = [27.9, 2.4];
-const ALGERIA_OVERVIEW_ZOOM = 5;
-
-// Static route images (Google Maps style) shown while the backend live map is pending.
-// Save the screenshot as mission draft/public/maps/<MISSION_ID>.png
+// Static route images (captures Google Maps, Algérie uniquement) en attendant
+// la carte temps réel du backend. Enregistrez la capture sous
+// mission draft/public/maps/<MISSION_ID>.png
 const MISSION_MAP_IMAGES: Record<string, string> = {
   'M2026-001': '/maps/M2026-001.png',
   'M2026-002': '/maps/M2026-002.png',
+  'M2026-003': '/maps/M2026-003.png',
 };
-
-// Pin color per mission status
-const STATUS_COLOR: Record<string, string> = {
-  en_cours: '#22D3EE',
-  terminee: '#10B981',
-  en_attente: '#F59E0B',
-  rejetee: '#EF4444',
-  annulee: '#EF4444',
-  brouillon: '#94A3B8',
-};
-
-// Interpolate along the line at progress t (0–1)
-function interpolateLine(from: [number, number], to: [number, number], t: number): [number, number] {
-  return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
-}
-
-// Build intermediate waypoints for a slightly curved route
-function buildRoutePoints(from: [number, number], to: [number, number]): [number, number][] {
-  const mid: [number, number] = [
-    (from[0] + to[0]) / 2 + (to[1] - from[1]) * 0.08,
-    (from[1] + to[1]) / 2 - (to[0] - from[0]) * 0.08,
-  ];
-  const pts: [number, number][] = [];
-  for (let i = 0; i <= 40; i++) {
-    const t = i / 40;
-    const u = 1 - t;
-    pts.push([
-      u * u * from[0] + 2 * u * t * mid[0] + t * t * to[0],
-      u * u * from[1] + 2 * u * t * mid[1] + t * t * to[1],
-    ]);
-  }
-  return pts;
-}
 
 const STATUS_PROGRESS: Record<Status, number> = {
   brouillon: 0, en_attente: 0.15, validee: 0.35,
@@ -95,161 +18,20 @@ const STATUS_PROGRESS: Record<Status, number> = {
   terminee: 1, annulee: 0, rejetee: 0,
 };
 
-// Fix Leaflet default icon paths (broken in Vite)
-function fixLeafletIcons() {
-  // @ts-expect-error Leaflet internal
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  });
-}
-fixLeafletIcons();
+// Itinéraire statique : image du trajet (Algérie uniquement), sans suivi dynamique.
+// Le suivi Google Maps temps réel arrivera avec le backend.
+function StaticRouteMap({ mission }: { mission: Mission | null }) {
+  const [failed, setFailed] = useState(false);
+  const src = mission ? MISSION_MAP_IMAGES[mission.id] : undefined;
 
-function makeIcon(color: string, size = 14) {
-  return L.divIcon({
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    className: '',
-  });
-}
-
-function makePinIcon(color: string, label: string) {
-  return L.divIcon({
-    html: `
-      <div style="display:flex;flex-direction:column;align-items:center;">
-        <div style="background:${color};color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.35);font-family:Inter,sans-serif;">${label}</div>
-        <div style="width:2px;height:8px;background:${color};margin-top:0;"></div>
-        <div style="width:10px;height:10px;border-radius:50%;background:${color};border:2px solid white;margin-top:-2px;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>
-      </div>`,
-    iconSize: [80, 40],
-    iconAnchor: [40, 40],
-    className: '',
-  });
-}
-
-function makeVehicleIcon() {
-  return L.divIcon({
-    html: `
-      <div style="position:relative;">
-        <div style="width:32px;height:32px;border-radius:50%;background:#F97316;border:3px solid white;box-shadow:0 2px 12px rgba(249,115,22,0.5);display:flex;align-items:center;justify-content:center;">
-          <svg width="15" height="15" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v-3l1.8-4.2A2 2 0 017.6 7.5h8.1l3.1 3.7H20a1 1 0 011 1V16"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/><path stroke-linecap="round" d="M11 7.5v4"/></svg>
-        </div>
-        <div style="position:absolute;top:-4px;right:-4px;width:12px;height:12px;border-radius:50%;background:#22C55E;border:2px solid white;animation:pulse 1.5s ease-in-out infinite;"></div>
-      </div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    className: '',
-  });
-}
-
-// Component to fit map bounds to the route
-function FitBounds({ positions }: { positions: [number, number][] }) {
-  const map = useMap();
-  useEffect(() => {
-    if (positions.length < 2) return;
-    const bounds = L.latLngBounds(positions);
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 });
-  }, [map, positions]);
-  return null;
-}
-
-// Rich popup: shows the full details of the corresponding mission
-function MissionPopupContent({ mission }: { mission: Mission }) {
-  return (
-    <div style={{ minWidth: 190, fontFamily: 'Inter,sans-serif' }}>
-      <p style={{ fontSize: 10, color: '#64748B', fontFamily: 'monospace', margin: 0 }}>
-        {mission.id}
-      </p>
-      <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: '2px 0' }}>
-        {mission.object}
-      </p>
-      <p style={{ fontSize: 11, color: '#475569', margin: 0 }}>
-        {mission.departure} → {mission.destination}
-      </p>
-      <p style={{ fontSize: 11, color: '#64748B', margin: '2px 0 0' }}>
-        {new Date(mission.departureDate).toLocaleDateString('fr-DZ', {
-          day: '2-digit',
-          month: 'short',
-        })}{' '}
-        · {mission.departureTime} — {mission.employee}
-      </p>
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#075985', margin: '4px 0 0' }}>
-        {STATUS_LABELS[mission.status] ?? mission.status}
-      </p>
-    </div>
-  );
-}
-
-function RouteMap({
-  mission,
-  missions,
-  onSelect,
-}: {
-  mission: Mission | null;
-  missions: Mission[];
-  onSelect: (id: string) => void;
-}) {
-  const [staticFailed, setStaticFailed] = useState(false);
-  // Overview: no mission selected — whole Algeria with one clickable pin per mission
-  if (!mission) {
-    return (
-      <MapContainer
-        center={ALGERIA_CENTER}
-        zoom={ALGERIA_OVERVIEW_ZOOM}
-        minZoom={5}
-        maxZoom={12}
-        maxBounds={ALGERIA_BOUNDS}
-        maxBoundsViscosity={1.0}
-        style={{ width: '100%', height: '100%' }}
-        zoomControl={true}
-        attributionControl={false}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
-        />
-        {missions.map((m) => {
-          const color = STATUS_COLOR[m.status] ?? '#94A3B8';
-          return (
-            <Fragment key={m.id}>
-              <Marker
-                position={getCityCoords(m.departure)}
-                icon={makeIcon(color)}
-                eventHandlers={{ click: () => onSelect(m.id) }}
-              >
-                <Popup>
-                  <MissionPopupContent mission={m} />
-                </Popup>
-              </Marker>
-              <Marker
-                position={getCityCoords(m.destination)}
-                icon={makeIcon(color)}
-                eventHandlers={{ click: () => onSelect(m.id) }}
-              >
-                <Popup>
-                  <MissionPopupContent mission={m} />
-                </Popup>
-              </Marker>
-            </Fragment>
-          );
-        })}
-      </MapContainer>
-    );
-  }
-
-  // Static preview image when available (falls back to the live map if missing)
-  const staticMap = mission ? MISSION_MAP_IMAGES[mission.id] : undefined;
-  if (staticMap && !staticFailed) {
+  if (mission && src && !failed) {
     return (
       <div className="relative h-full w-full overflow-hidden bg-[#E8EEF3]">
         <img
-          src={staticMap}
+          src={src}
           alt={`Itinéraire ${mission.departure} → ${mission.destination}`}
           className="h-full w-full object-cover"
-          onError={() => setStaticFailed(true)}
+          onError={() => setFailed(true)}
         />
         <span className="absolute bottom-2 right-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-medium text-muted shadow">
           Aperçu statique — suivi temps réel à venir
@@ -258,142 +40,32 @@ function RouteMap({
     );
   }
 
-  const from = getCityCoords(mission.departure);
-  const to = getCityCoords(mission.destination);
-  const routePoints = buildRoutePoints(from, to);
-  const t = STATUS_PROGRESS[mission.status as Status] ?? 0;
-  const currentPos = interpolateLine(from, to, t);
-  const isActive = mission.status === 'en_cours';
-  const isDone = mission.status === 'terminee';
-  const isRejected = ['annulee', 'rejetee'].includes(mission.status);
-
-  // Split route into traveled and remaining
-  const traveledCount = Math.round(t * routePoints.length);
-  const traveledPoints = routePoints.slice(0, Math.max(traveledCount, 2));
-  const remainingPoints = routePoints.slice(Math.max(traveledCount - 1, 0));
-
-  const center: [number, number] = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
-
   return (
-    <MapContainer
-      center={center}
-      zoom={7}
-      minZoom={5}
-      maxZoom={12}
-      maxBounds={ALGERIA_BOUNDS}
-      maxBoundsViscosity={1.0}
-      style={{ width: '100%', height: '100%' }}
-      zoomControl={true}
-      attributionControl={false}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; OpenStreetMap contributors'
-      />
-      <FitBounds positions={[from, to]} />
-
-      {/* Remaining route — dashed gray */}
-      {!isRejected && t < 1 && (
-        <Polyline
-          positions={remainingPoints}
-          pathOptions={{ color: '#94A3B8', weight: 3, dashArray: '8 6', opacity: 0.6 }}
-        />
-      )}
-
-      {/* Traveled route — cyan/green glow */}
-      {!isRejected && t > 0 && (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--surface-muted)] p-6 text-center">
+      <span className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface)] text-[var(--ink-soft)] shadow-sm">
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <circle cx="12" cy="11" r="3" />
+        </svg>
+      </span>
+      {mission ? (
         <>
-          {/* Glow layer */}
-          <Polyline
-            positions={traveledPoints}
-            pathOptions={{
-              color: isDone ? '#10B981' : '#22D3EE',
-              weight: 10,
-              opacity: 0.15,
-              lineCap: 'round',
-            }}
-          />
-          {/* Main line */}
-          <Polyline
-            positions={traveledPoints}
-            pathOptions={{
-              color: isDone ? '#10B981' : '#22D3EE',
-              weight: 4,
-              opacity: 0.95,
-              lineCap: 'round',
-            }}
-          />
+          <p className="text-sm font-semibold text-[var(--ink)]">
+            {mission.departure} → {mission.destination}
+          </p>
+          <p className="text-xs text-[var(--ink-muted)]">
+            Aperçu d'itinéraire à venir pour cette mission.
+          </p>
         </>
+      ) : (
+        <p className="text-sm font-medium text-[var(--ink-soft)]">
+          Sélectionnez une mission pour afficher l'itinéraire
+        </p>
       )}
-
-      {/* Full route outline when rejected */}
-      {isRejected && (
-        <Polyline
-          positions={routePoints}
-          pathOptions={{ color: '#EF4444', weight: 3, opacity: 0.4, dashArray: '6 8' }}
-        />
-      )}
-
-      {/* Departure pin — click selects the mission, popup shows its details */}
-      <Marker
-        position={from}
-        icon={makePinIcon('#075985', mission.departure)}
-        eventHandlers={{ click: () => onSelect(mission.id) }}
-      >
-        <Popup>
-          <MissionPopupContent mission={mission} />
-        </Popup>
-      </Marker>
-
-      {/* Destination pin — click selects the mission, popup shows its details */}
-      <Marker
-        position={to}
-        icon={makePinIcon(isDone ? '#10B981' : '#22D3EE', mission.destination)}
-        eventHandlers={{ click: () => onSelect(mission.id) }}
-      >
-        <Popup>
-          <MissionPopupContent mission={mission} />
-        </Popup>
-      </Marker>
-
-      {/* Moving vehicle */}
-      {isActive && t > 0 && t < 1 && (
-        <Marker position={currentPos} icon={makeVehicleIcon()}>
-          <Popup>
-            <MissionPopupContent mission={mission} />
-          </Popup>
-        </Marker>
-      )}
-
-      {/* Other missions — small clickable dots so any pin selects its mission */}
-      {missions
-        .filter((m) => m.id !== mission.id)
-        .map((m) => {
-          const color = STATUS_COLOR[m.status] ?? '#94A3B8';
-          return (
-            <Fragment key={m.id}>
-              <Marker
-                position={getCityCoords(m.departure)}
-                icon={makeIcon(color)}
-                eventHandlers={{ click: () => onSelect(m.id) }}
-              >
-                <Popup>
-                  <MissionPopupContent mission={m} />
-                </Popup>
-              </Marker>
-              <Marker
-                position={getCityCoords(m.destination)}
-                icon={makeIcon(color)}
-                eventHandlers={{ click: () => onSelect(m.id) }}
-              >
-                <Popup>
-                  <MissionPopupContent mission={m} />
-                </Popup>
-              </Marker>
-            </Fragment>
-          );
-        })}
-    </MapContainer>
+      <p className="text-[11px] text-[var(--ink-muted)]">
+        Suivi en direct (Google Maps, Algérie uniquement) après l'intégration backend.
+      </p>
+    </div>
   );
 }
 
@@ -625,13 +297,8 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
               </div>
               )}
 
-              {/* Map — overview of Algeria when nothing is selected, route when one is */}
-              <RouteMap
-                key={selected?.id ?? 'overview'}
-                mission={selected}
-                missions={filtered}
-                onSelect={setSelectedId}
-              />
+              {/* Itinerary — static image, no live tracking yet */}
+              <StaticRouteMap key={selected?.id ?? 'overview'} mission={selected} />
 
               {/* No selection hint */}
               {!selected && (

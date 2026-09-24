@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react';
+import { Bell, Gear, Lock, Truck, UsersThree } from '@phosphor-icons/react';
 import { users } from '../data/mock';
 import type { Role } from '../data/mock';
 
@@ -8,12 +9,12 @@ interface Props {
 
 type Tab = 'general' | 'users' | 'vehicles' | 'notifications' | 'security';
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'general', label: 'Général', icon: '⚙️' },
-  { id: 'users', label: 'Utilisateurs', icon: '👥' },
-  { id: 'vehicles', label: 'Véhicules', icon: '🚗' },
-  { id: 'notifications', label: 'Notifications', icon: '🔔' },
-  { id: 'security', label: 'Sécurité', icon: '🔒' },
+const TABS: { id: Tab; label: string; icon: any }[] = [
+  { id: 'general', label: 'Général', icon: Gear },
+  { id: 'users', label: 'Utilisateurs', icon: UsersThree },
+  { id: 'vehicles', label: 'Véhicules', icon: Truck },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'security', label: 'Sécurité', icon: Lock },
 ];
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -314,16 +315,20 @@ export default function ParametresPage({ onNavigate: _onNavigate }: Props) {
 
       <div className="bg-white rounded-xl border border-border shadow-sm p-2">
         <div className="flex gap-1.5 flex-wrap">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === t.id ? 'bg-navy text-white' : 'text-muted hover:text-ink hover:bg-slate-50'}`}
-            >
-              <span>{t.icon}</span>
-              <span>{t.label}</span>
-            </button>
-          ))}
+          {TABS.map(t => {
+            const Icon = t.icon;
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${active ? 'bg-navy text-white' : 'text-muted hover:text-ink hover:bg-slate-50'}`}
+              >
+                <Icon size={16} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

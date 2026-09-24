@@ -362,7 +362,6 @@ export default function Layout({
                       Administrateur
                     </span>
                   </span>
-                  <CaretDown size={14} className="text-[var(--ink-muted)]" />
                 </button>
                 {profileOpen && (
                   <div className="absolute right-0 top-12 z-20 w-52 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lg)]">
@@ -370,7 +369,7 @@ export default function Layout({
                       type="button"
                       onClick={() => {
                         setProfileOpen(false);
-                        onNavigate('admin-structures');
+                        onNavigate('parametres');
                       }}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--ink-soft)] hover:bg-[var(--surface-muted)]"
                     >

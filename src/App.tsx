@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { vehicles, drivers, missions } from './data/mock';
 import type { Driver } from './data/mock';
 import Layout from './components/Layout';
+import LoginPage from './pages/LoginPage';
 import VehicleTelemetryModal from './components/VehicleTelemetryModal';
 import NewMissionForm from './pages/NewMissionForm';
 import MissionDetail from './pages/MissionDetail';
@@ -39,7 +40,7 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
 };
 
 export default function App() {
-  // NOTE: login is disabled for now — it will be added back later.
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>('admin-dashboard');
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
   const [fleetFilter, setFleetFilter] = useState<string>('all');
@@ -99,10 +100,18 @@ export default function App() {
     setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
   }
 
+  function handleLogin() {
+    setCurrentPage('admin-dashboard');
+    setHistory([]);
+    setFleetFilter('all');
+    setIsLoggedIn(true);
+  }
+
   function handleLogout() {
     setCurrentPage('admin-dashboard');
     setHistory([]);
     setFleetFilter('all');
+    setIsLoggedIn(false);
   }
 
   function navigate(page: string, id?: string) {
@@ -149,6 +158,10 @@ export default function App() {
       default:
         return <AdminDashboard onNavigate={navigate} />;
     }
+  }
+
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={handleLogin} />;
   }
 
   return (

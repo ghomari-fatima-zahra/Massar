@@ -86,9 +86,11 @@ function HealthRing({ value }: { value: number }) {
           strokeLinecap="round"
         />
       </svg>
-      <span className="absolute inset-0 grid place-items-center text-lg font-bold tabular-nums text-[var(--ink)]">
-        {value}
-        <span className="text-[10px] font-semibold">%</span>
+      <span className="absolute inset-0 flex items-center justify-center text-[var(--ink)]">
+        <span className="relative text-lg font-bold tabular-nums leading-none">
+          {value}
+          <span className="absolute left-full top-0 ml-0.5 text-[10px] font-semibold">%</span>
+        </span>
       </span>
     </div>
   );
