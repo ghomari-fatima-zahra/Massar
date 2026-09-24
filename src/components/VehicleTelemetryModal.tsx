@@ -11,7 +11,6 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  CalendarCheck,
   Check,
   Clock,
   Drop,
@@ -39,7 +38,6 @@ interface Props {
   assignment: { mission: Mission; driver: Driver | null } | null;
   onClose: () => void;
   onStatusChange: (id: string, status: Vehicle['status']) => void;
-  onEdit: (id: string) => void;
 }
 
 type Tab = 'apercu' | 'entretien' | 'carburant' | 'missions';
@@ -106,7 +104,7 @@ function GaugeBar({ value, tone }: { value: number; tone: 'success' | 'warning' 
   );
 }
 
-function WearRow({ label, value, invert }: { label: string; value: number; invert?: boolean }) {
+function WearRow({ label, value, invert, onChange }: { label: string; value: number; invert?: boolean; onChange?: (v: number) => void }) {
   const tone = invert
     ? value >= 60 ? 'success' : value >= 30 ? 'warning' : 'danger'
     : value >= 60 ? 'danger' : value >= 30 ? 'warning' : 'success';
@@ -117,6 +115,17 @@ function WearRow({ label, value, invert }: { label: string; value: number; inver
         <p className="text-xs font-bold tabular-nums text-[var(--ink)]">{value} %</p>
       </div>
       <GaugeBar value={value} tone={tone} />
+      {onChange && (
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-label={label}
+          className="mt-2 w-full accent-[#075985]"
+        />
+      )}
     </div>
   );
 }
@@ -133,37 +142,34 @@ function MiniTooltip({ active, payload, label, suffix }: any) {
   );
 }
 
-function Blueprint() {
-  return (
-    <svg viewBox="0 0 340 130" className="h-auto w-full" fill="none" aria-hidden="true">
-      <line x1="8" y1="108" x2="332" y2="108" stroke="var(--line-strong)" strokeWidth="1" strokeDasharray="5 4" />
-      <path
-        d="M28 96 L34 72 Q36 64 44 62 L72 56 Q84 38 104 36 L196 36 Q218 36 232 54 L268 60 Q296 62 302 74 L306 96 Q306 100 300 100 L286 100 A18 18 0 0 0 250 100 L122 100 A18 18 0 0 0 86 100 L34 100 Q28 100 28 96 Z"
-        stroke="var(--navy)"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path d="M96 56 L108 40 L188 40 L206 56" stroke="var(--navy)" strokeWidth="1.4" strokeLinejoin="round" />
-      <line x1="148" y1="40" x2="148" y2="56" stroke="var(--navy)" strokeWidth="1.2" />
-      <circle cx="104" cy="100" r="17" stroke="var(--navy)" strokeWidth="1.8" />
-      <circle cx="104" cy="100" r="6" stroke="var(--navy)" strokeWidth="1.4" />
-      <circle cx="268" cy="100" r="17" stroke="var(--navy)" strokeWidth="1.8" />
-      <circle cx="268" cy="100" r="6" stroke="var(--navy)" strokeWidth="1.4" />
-      <line x1="104" y1="14" x2="104" y2="28" stroke="var(--line-strong)" strokeWidth="1" />
-      <line x1="268" y1="14" x2="268" y2="28" stroke="var(--line-strong)" strokeWidth="1" />
-      <line x1="104" y1="21" x2="268" y2="21" stroke="var(--line-strong)" strokeWidth="1" strokeDasharray="3 3" />
-    </svg>
-  );
-}
-
-export default function VehicleTelemetryModal({ vehicle, assignment, onClose, onStatusChange, onEdit }: Props) {
+export default function VehicleTelemetryModal({ vehicle, assignment, onClose, onStatusChange }: Props) {
   const [tab, setTab] = useState<Tab>('apercu');
   const [services, setServices] = useState<ServiceEntry[]>(() => getTelemetry(vehicle).services);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<Vehicle['status'] | null>(null);
   const [svc, setSvc] = useState({ date: new Date().toISOString().slice(0, 10), km: '', type: 'Vidange + filtres', center: '', cost: '' });
 
-  const t = useMemo(() => getTelemetry(vehicle), [vehicle]);
+  const base = useMemo(() => getTelemetry(vehicle), [vehicle]);
+  // Wear variables are editable: the health index is recomputed live from them.
+  const [tweak, setTweak] = useState({
+    brake: base.brakeWearPct,
+    tire: base.tireWearPct,
+    oil: base.oilLifePct,
+  });
+  const [savedTweak, setSavedTweak] = useState(tweak);
+  const dirty =
+    tweak.brake !== savedTweak.brake || tweak.tire !== savedTweak.tire || tweak.oil !== savedTweak.oil;
+  const healthScore = Math.max(
+    5,
+    Math.min(99, Math.round(100 - 0.35 * tweak.brake - 0.3 * tweak.tire - 0.35 * (100 - tweak.oil))),
+  );
+  const t = {
+    ...base,
+    brakeWearPct: tweak.brake,
+    tireWearPct: tweak.tire,
+    oilLifePct: tweak.oil,
+    healthScore,
+  };
   const history = useMemo(() => missionsOfVehicle(vehicle.id), [vehicle.id]);
 
   const inspDate = new Date(vehicle.nextInspection);
@@ -332,9 +338,6 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
               <h4 className="text-sm font-semibold text-[var(--ink)]">Fiche technique</h4>
-              <div className="mt-3 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--page)] p-3">
-                <Blueprint />
-              </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[
                   { label: 'Marque', value: vehicle.brand },
@@ -344,7 +347,7 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
                   { label: 'Capacité', value: `${vehicle.capacity} places` },
                   { label: 'Identifiant', value: vehicle.id },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-lg bg-[var(--surface-muted)] p-2.5">
+                  <div key={s.label} className="rounded-lg bg-[var(--surface-muted)] p-2.5 text-center">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--ink-muted)]">{s.label}</p>
                     <p className="mt-0.5 truncate text-xs font-semibold text-[var(--ink)]">{s.value}</p>
                   </div>
@@ -354,15 +357,18 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
             <div className="space-y-4">
               <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
                 <h4 className="text-sm font-semibold text-[var(--ink)]">Usure & fluides</h4>
+                <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
+                  Ajustez les curseurs pour suivre l'usure — l'indice santé se recalcule.
+                </p>
                 <div className="mt-4 space-y-4">
-                  <WearRow label="Plaquettes de frein (usure)" value={t.brakeWearPct} />
+                  <WearRow label="Plaquettes de frein (usure)" value={t.brakeWearPct} onChange={(v) => setTweak((s) => ({ ...s, brake: v }))} />
                   <div className="flex items-center gap-2 text-[var(--ink-muted)]">
                     <Lifebuoy size={14} />
-                    <div className="flex-1"><WearRow label="Pneus (usure bande de roulement)" value={t.tireWearPct} /></div>
+                    <div className="flex-1"><WearRow label="Pneus (usure bande de roulement)" value={t.tireWearPct} onChange={(v) => setTweak((s) => ({ ...s, tire: v }))} /></div>
                   </div>
                   <div className="flex items-center gap-2 text-[var(--ink-muted)]">
                     <Drop size={14} />
-                    <div className="flex-1"><WearRow label="Huile moteur (vie restante)" value={t.oilLifePct} invert /></div>
+                    <div className="flex-1"><WearRow label="Huile moteur (vie restante)" value={t.oilLifePct} invert onChange={(v) => setTweak((s) => ({ ...s, oil: v }))} /></div>
                   </div>
                 </div>
               </div>
@@ -626,7 +632,12 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
         </div>
 
         {/* Footer */}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex items-center justify-end gap-2">
+          {dirty && (
+            <p className="mr-auto text-[11px] font-semibold text-[var(--warning)]">
+              Usure modifiée — enregistrez pour mettre à jour l'indice santé
+            </p>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -634,13 +645,15 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
           >
             Fermer
           </button>
-          <button
-            type="button"
-            onClick={() => { onEdit(vehicle.id); }}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--navy)] px-4 py-2 text-xs font-semibold text-white"
-          >
-            <CalendarCheck size={14} /> Modifier la fiche
-          </button>
+          {dirty && (
+            <button
+              type="button"
+              onClick={() => setSavedTweak(tweak)}
+              className="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white hover:bg-[var(--accent-strong)]"
+            >
+              <Check size={14} weight="bold" /> Enregistrer
+            </button>
+          )}
         </div>
       </div>
     </div>

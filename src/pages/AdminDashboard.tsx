@@ -254,9 +254,9 @@ export default function AdminDashboard({ onNavigate }: Props) {
     current: idx === currentMonth,
   }));
 
-  const upcoming = [...missions]
-    .sort((a, b) => +new Date(a.departureDate) - +new Date(b.departureDate))
-    .slice(0, 3);
+  const recentMissions = [...missions]
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    .slice(0, 5);
 
   const recentActivity = [...missions].slice(0, 4).map((m) => ({
     title: `${m.object} — ${STATUS_LABELS[m.status]}`,
@@ -425,8 +425,8 @@ export default function AdminDashboard({ onNavigate }: Props) {
         <article className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Prochaines échéances</h2>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">Les prochains départs planifiés.</p>
+              <h2 className="text-sm font-semibold text-[var(--ink)]">Missions récentes</h2>
+              <p className="mt-1 text-xs text-[var(--ink-muted)]">Tous statuts confondus.</p>
             </div>
             <button
               type="button"
@@ -437,7 +437,7 @@ export default function AdminDashboard({ onNavigate }: Props) {
             </button>
           </div>
           <div className="mt-2 space-y-3">
-            {upcoming.map((mission) => (
+            {recentMissions.map((mission) => (
               <div key={mission.id} className="flex items-start gap-3 border-t border-[var(--line)] pt-3">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                 <div className="min-w-0 flex-1">

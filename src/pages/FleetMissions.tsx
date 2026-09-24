@@ -52,6 +52,7 @@ const ALGERIA_OVERVIEW_ZOOM = 5;
 // Static route images (Google Maps style) shown while the backend live map is pending.
 // Save the screenshot as mission draft/public/maps/<MISSION_ID>.png
 const MISSION_MAP_IMAGES: Record<string, string> = {
+  'M2026-001': '/maps/M2026-001.png',
   'M2026-002': '/maps/M2026-002.png',
 };
 

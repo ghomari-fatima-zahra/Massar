@@ -15,19 +15,11 @@ interface Props {
     returnDate: string;
     returnTime: string;
     passengers: number;
-    vehicleNeeded: boolean;
-    vehicleCategory: string;
-    vehicleSubtype: string;
     assignedDriverId: string;
     assignedVehicleId: string;
     notes: string;
   }) => void;
 }
-
-type VehicleCategory = 'bus' | 'vehicule' | '';
-
-const BUS_TYPES = ['Minibus (9 places)', 'Bus standard (30 places)', 'Grand bus (50 places)'];
-const CAR_TYPES = ['Berline', 'SUV', 'Monospace', 'Minivan', 'Utilitaire'];
 
 export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: Props) {
   interface FormState {
@@ -40,9 +32,6 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     returnDate: string;
     returnTime: string;
     passengers: number;
-    vehicleNeeded: boolean;
-    vehicleCategory: VehicleCategory;
-    vehicleSubtype: string;
     notes: string;
     assignedDriverId: string;
     assignedVehicleId: string;
@@ -58,11 +47,8 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     returnDate: '',
     returnTime: '',
     passengers: 1,
-    vehicleNeeded: true,
-    vehicleCategory: '' as VehicleCategory,
-    vehicleSubtype: '',
     notes: '',
-    // Assignment fields for service missions
+    // Conducteur + véhicule toujours affectés à la création
     assignedDriverId: '',
     assignedVehicleId: '',
   });
@@ -82,12 +68,8 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     if (!form.destination.trim()) e.destination = 'La destination est requise.';
     if (!form.departureDate) e.departureDate = 'La date de départ est requise.';
     // La date de retour est facultative : le conducteur déclarera son arrivée.
-    if (form.vehicleNeeded) {
-      if (!form.assignedDriverId) e.assignedDriverId = 'Choisissez un conducteur disponible.';
-      if (!form.assignedVehicleId) e.assignedVehicleId = 'Choisissez un véhicule disponible.';
-      if (!form.vehicleCategory) e.vehicleCategory = 'Choisissez un type de véhicule.';
-      if (form.vehicleCategory && !form.vehicleSubtype) e.vehicleSubtype = 'Précisez le modèle souhaité.';
-    }
+    if (!form.assignedDriverId) e.assignedDriverId = 'Choisissez un conducteur disponible.';
+    if (!form.assignedVehicleId) e.assignedVehicleId = 'Choisissez un véhicule disponible.';
     return e;
   }
 
@@ -99,8 +81,8 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     setDraft(isDraft);
     setSubmitted(true);
     if (!isDraft && onSubmitMission) {
-      const { type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, notes } = form;
-      onSubmitMission({ type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, notes });
+      const { type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes } = form;
+      onSubmitMission({ type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
     }
   }
 
@@ -127,13 +109,13 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
             : 'Votre demande de mission a été transmise avec conducteur et véhicule affectés.'}
         </p>
         <div className="flex gap-3 justify-center">
-          <button onClick={() => onNavigate('my-missions')} className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-dark transition-colors">
+          <button onClick={() => onNavigate('fleet-missions')} className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-dark transition-colors">
             Voir mes missions
           </button>
           <button
             onClick={() => {
               setSubmitted(false);
-              setForm({ type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, vehicleNeeded: true, vehicleCategory: '', vehicleSubtype: '', notes: '', assignedDriverId: '', assignedVehicleId: '' });
+              setForm({ type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, notes: '', assignedDriverId: '', assignedVehicleId: '' });
             }}
             className="px-5 py-2.5 border border-border text-ink rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
           >
@@ -160,8 +142,6 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     `w-full px-3.5 py-2.5 rounded-lg border text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 transition-all ${
       errors[field] ? 'border-danger focus:ring-danger/20 bg-danger-bg/30' : 'border-border focus:border-navy focus:ring-navy/15 bg-white'
     }`;
-
-  const subtypes = form.vehicleCategory === 'bus' ? BUS_TYPES : form.vehicleCategory === 'vehicule' ? CAR_TYPES : [];
 
   return (
     <div className="max-w-3xl">
@@ -236,101 +216,12 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
             </div>
           </Field>
 
-          {/* Vehicle section */}
-          <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
-            {/* Checkbox header */}
-            <div className="px-4 py-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.vehicleNeeded}
-                  onChange={e => set('vehicleNeeded', e.target.checked)}
-                  className="w-4 h-4 accent-navy rounded"
-                />
-                <div>
-                  <p className="text-ink text-sm font-medium">Réserver un véhicule de service</p>
-                  <p className="text-muted text-xs">Un véhicule sera affecté à votre mission selon disponibilité</p>
-                </div>
-              </label>
-            </div>
+          {/* Véhicule + conducteur choisis dans la section Affectation ci-dessous */}
 
-            {form.vehicleNeeded && (
-              <div className="px-4 pb-4 space-y-4 border-t border-border/60 pt-4">
-
-                {/* Step 1: Bus ou Véhicule */}
-                <div>
-                  <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">1. Catégorie</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {([
-                      { val: 'bus', label: 'Bus', desc: 'Transport collectif', icon: (
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                          <rect x="4" y="3" width="16" height="14" rx="2.5"/>
-                          <path strokeLinecap="round" d="M4 10.5h16M8 3v3.5M16 3v3.5"/>
-                          <circle cx="8" cy="19.5" r="1.6"/><circle cx="16" cy="19.5" r="1.6"/>
-                        </svg>
-                      )},
-                      { val: 'vehicule', label: 'Véhicule', desc: 'Voiture de service', icon: (
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v-3.2l1.9-4.4A2 2 0 016.7 7.5h8.5l3.3 3.9h1.7a1.3 1.3 0 011.3 1.3v3.8"/>
-                          <circle cx="7.5" cy="17" r="1.8"/><circle cx="16.8" cy="17" r="1.8"/>
-                          <path strokeLinecap="round" d="M11.5 7.5v4"/>
-                        </svg>
-                      )},
-                    ] as const).map(opt => (
-                      <button
-                        key={opt.val}
-                        type="button"
-                        onClick={() => { set('vehicleCategory', opt.val); set('vehicleSubtype', ''); }}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                          form.vehicleCategory === opt.val
-                            ? 'border-navy bg-navy-light/60 text-navy'
-                            : 'border-border bg-white text-ink hover:border-navy/30'
-                        }`}
-                      >
-                        <span className={form.vehicleCategory === opt.val ? 'text-navy' : 'text-muted'}>{opt.icon}</span>
-                        <div>
-                          <p className="text-sm font-semibold">{opt.label}</p>
-                          <p className={`text-xs ${form.vehicleCategory === opt.val ? 'text-navy/70' : 'text-muted'}`}>{opt.desc}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  {errors.vehicleCategory && <p className="mt-1.5 text-xs text-danger flex items-center gap-1">⚠ {errors.vehicleCategory}</p>}
-                </div>
-
-                {/* Step 2: Subtype */}
-                {form.vehicleCategory && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">2. Type souhaité</p>
-                    <div className="flex flex-wrap gap-2">
-                      {subtypes.map(t => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => set('vehicleSubtype', t)}
-                          className={`px-3.5 py-1.5 rounded-lg border text-sm font-medium transition-all ${
-                            form.vehicleSubtype === t
-                              ? 'border-navy bg-navy text-white'
-                              : 'border-border bg-white text-ink hover:border-navy/40'
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                    {errors.vehicleSubtype && <p className="mt-1.5 text-xs text-danger flex items-center gap-1">⚠ {errors.vehicleSubtype}</p>}
-                  </div>
-                )}
-
-                {/* Usage is now chosen at the top ("Type de demande") */}
-              </div>
-            )}
-          </div>
-
-          {/* Driver & Vehicle Assignment (for service missions with vehicle) */}
-          {form.vehicleNeeded && (
-            <>
-              <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
+          {/* Affectation — conducteur et véhicule */}
+          <div>
+            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">2. Affectation</p>
+            <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
                 <div className="px-4 py-4">
                   <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">3. Affectation</p>
                   <p className="text-muted text-xs">Choisissez le conducteur et le véhicule pour cette mission</p>
@@ -408,8 +299,7 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
                   </div>
                 </div>
               </div>
-            </>
-          )}
+          </div>
 
           {/* Notes / motif */}
           <Field label="Observations / Remarques" optional>

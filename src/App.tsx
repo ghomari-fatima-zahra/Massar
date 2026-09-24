@@ -66,14 +66,12 @@ export default function App() {
     returnDate: string;
     returnTime: string;
     passengers: number;
-    vehicleNeeded: boolean;
-    vehicleCategory: string;
-    vehicleSubtype: string;
     assignedDriverId: string;
     assignedVehicleId: string;
     notes: string;
   }) {
-    // Create new mission
+    // Create new mission (vehicle + driver always assigned at creation)
+    const assignedVehicle = vehicles.find(v => v.id === data.assignedVehicleId);
     const newId = `M${new Date().getFullYear()}-${String(missions.length + 1).padStart(3, '0')}`;
     const newMission = {
       id: newId,
@@ -89,8 +87,8 @@ export default function App() {
       departureTime: data.departureTime,
       returnTime: data.returnTime,
       passengers: data.passengers,
-      vehicleNeeded: data.vehicleNeeded,
-      vehicleType: data.vehicleSubtype,
+      vehicleNeeded: true,
+      vehicleType: assignedVehicle?.type ?? '',
       status: 'en_attente' as const,
       vehicleId: data.assignedVehicleId,
       driverId: data.assignedDriverId,
@@ -419,14 +417,17 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
                   <input type="date" className={inputClass('licenceExpiry')} value={form.licenceExpiry} onChange={e => set('licenceExpiry', e.target.value)} />
                   {errors.licenceExpiry && <p className="mt-1.5 text-xs text-danger">⚠ {errors.licenceExpiry}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-ink mb-1.5">Statut initial</label>
-                  <select className={inputClass('status')} value={form.status} onChange={e => set('status', e.target.value as Driver['status'])}>
-                    {DRIVER_STATUSES.map(s => (
-                      <option key={s.id} value={s.id}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
+                {editingId && (
+                  <div>
+                    <label className="block text-sm font-medium text-ink mb-1.5">Statut</label>
+                    <select className={inputClass('status')} value={form.status} onChange={e => set('status', e.target.value as Driver['status'])}>
+                      {DRIVER_STATUSES.map(s => (
+                        <option key={s.id} value={s.id}>{s.label}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-muted">En mission reste automatique quand le conducteur est affecté.</p>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex gap-3 justify-end mt-6">
@@ -707,7 +708,6 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
           assignment={detailAssignment}
           onClose={() => setDetailId(null)}
           onStatusChange={setVehicleStatus}
-          onEdit={(id) => openEdit(id)}
         />
       )}
     </div>
