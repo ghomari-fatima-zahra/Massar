@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import {
   Bell,
-  CaretDown,
   CaretRight,
   Check,
   Gear,
@@ -135,12 +134,6 @@ export default function Layout({
                     Administrateur
                   </p>
                 </div>
-              )}
-              {sidebarOpen && (
-                <CaretDown
-                  size={14}
-                  className="ml-auto shrink-0 text-[var(--ink-muted)]"
-                />
               )}
             </div>
           </div>

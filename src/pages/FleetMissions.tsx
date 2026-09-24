@@ -12,6 +12,31 @@ const MISSION_MAP_IMAGES: Record<string, string> = {
   'M2026-003': '/maps/M2026-003.png',
 };
 
+// Fallback: match by route (direction-insensitive, accents ignored) so that
+// newly created missions also find their preview image.
+const ROUTE_MAP_IMAGES: { a: string; b: string; src: string }[] = [
+  { a: 'oran', b: 'setif', src: '/maps/M2026-001.png' },
+  { a: 'alger', b: 'blida', src: '/maps/M2026-002.png' },
+  { a: 'tlemcen', b: 'alger', src: '/maps/M2026-003.png' },
+];
+
+function normCity(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function imageForMission(mission: Mission): string | undefined {
+  const byId = MISSION_MAP_IMAGES[mission.id];
+  if (byId) return byId;
+  const d = normCity(mission.departure);
+  const t = normCity(mission.destination);
+  const hit = ROUTE_MAP_IMAGES.find(
+    (r) =>
+      (d.includes(r.a) && t.includes(r.b)) ||
+      (d.includes(r.b) && t.includes(r.a)),
+  );
+  return hit?.src;
+}
+
 const STATUS_PROGRESS: Record<Status, number> = {
   brouillon: 0, en_attente: 0.15, validee: 0.35,
   affectee: 0.5, confirmee: 0.65, en_cours: 0.8,
@@ -22,7 +47,7 @@ const STATUS_PROGRESS: Record<Status, number> = {
 // Le suivi Google Maps temps réel arrivera avec le backend.
 function StaticRouteMap({ mission }: { mission: Mission | null }) {
   const [failed, setFailed] = useState(false);
-  const src = mission ? MISSION_MAP_IMAGES[mission.id] : undefined;
+  const src = mission ? imageForMission(mission) : undefined;
 
   if (mission && src && !failed) {
     return (
