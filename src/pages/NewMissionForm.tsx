@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { users, vehicles, drivers } from '../data/mock';
+import { vehicles, drivers } from '../data/mock';
 import type { Vehicle, Driver } from '../data/mock';
 
 interface Props {
   onNavigate: (page: string) => void;
   onBack: () => void;
   onSubmitMission?: (data: {
-    requestKind: RequestKind;
     type: string;
     object: string;
     departure: string;
@@ -21,22 +20,17 @@ interface Props {
     vehicleSubtype: string;
     assignedDriverId: string;
     assignedVehicleId: string;
-    beneficiaire: string;
-    startDate: string;
     notes: string;
   }) => void;
 }
 
 type VehicleCategory = 'bus' | 'vehicule' | '';
-// service = ponctual mission trip · fonctionnel = durable vehicle assignment to an employee
-type RequestKind = 'service' | 'fonctionnel';
 
 const BUS_TYPES = ['Minibus (9 places)', 'Bus standard (30 places)', 'Grand bus (50 places)'];
 const CAR_TYPES = ['Berline', 'SUV', 'Monospace', 'Minivan', 'Utilitaire'];
 
 export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: Props) {
   interface FormState {
-    requestKind: RequestKind;
     type: string;
     object: string;
     departure: string;
@@ -49,15 +43,12 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     vehicleNeeded: boolean;
     vehicleCategory: VehicleCategory;
     vehicleSubtype: string;
-    beneficiaire: string;
-    startDate: string;
     notes: string;
     assignedDriverId: string;
     assignedVehicleId: string;
   }
 
   const [form, setForm] = useState<FormState>({
-    requestKind: 'service' as RequestKind,
     type: 'externe',
     object: '',
     departure: '',
@@ -70,9 +61,6 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     vehicleNeeded: true,
     vehicleCategory: '' as VehicleCategory,
     vehicleSubtype: '',
-    // Affectation (fonctionnel) fields — no mission object, no return date
-    beneficiaire: '',
-    startDate: '',
     notes: '',
     // Assignment fields for service missions
     assignedDriverId: '',
@@ -81,46 +69,22 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [draft, setDraft] = useState(false);
-  // Beneficiary autocomplete state
-  const [empQuery, setEmpQuery] = useState('');
-  const [empOpen, setEmpOpen] = useState(false);
-
-  const empMatches = users.filter(u => {
-    const q = empQuery.trim().toLowerCase();
-    if (!q) return true;
-    return `${u.name} ${u.matricule} ${u.structure}`.toLowerCase().includes(q);
-  });
-
-  function pickEmployee(name: string) {
-    set('beneficiaire', name);
-    setEmpQuery(name);
-    setEmpOpen(false);
-  }
 
   function set(field: string, val: unknown) {
     setForm(f => ({ ...f, [field]: val }));
     setErrors(e => { const n = { ...e }; delete n[field]; return n; });
   }
 
-  function validate(beneficiaryOverride?: string) {
+  function validate() {
     const e: Record<string, string> = {};
-    // Fonctionnel = affectation, not a mission: beneficiary + vehicle + start date only
-    if (form.requestKind === 'fonctionnel') {
-      const beneficiary = beneficiaryOverride ?? form.beneficiaire;
-      if (!beneficiary) e.beneficiaire = 'Tapez un nom puis sélectionnez un employé de la liste.';
-      if (!form.vehicleSubtype) e.vehicleSubtype = 'Précisez le type de véhicule souhaité.';
-      if (!form.startDate) e.startDate = "La date d'attribution est requise.";
-      return e;
-    }
     if (!form.object.trim()) e.object = "L'objet est requis.";
     if (!form.departure.trim()) e.departure = 'Le lieu de départ est requis.';
     if (!form.destination.trim()) e.destination = 'La destination est requise.';
     if (!form.departureDate) e.departureDate = 'La date de départ est requise.';
     // La date de retour est facultative : le conducteur déclarera son arrivée.
-    if (form.requestKind === 'service' && form.vehicleNeeded) {
+    if (form.vehicleNeeded) {
       if (!form.assignedDriverId) e.assignedDriverId = 'Choisissez un conducteur disponible.';
       if (!form.assignedVehicleId) e.assignedVehicleId = 'Choisissez un véhicule disponible.';
-    } else if (form.vehicleNeeded) {
       if (!form.vehicleCategory) e.vehicleCategory = 'Choisissez un type de véhicule.';
       if (form.vehicleCategory && !form.vehicleSubtype) e.vehicleSubtype = 'Précisez le modèle souhaité.';
     }
@@ -128,24 +92,15 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
   }
 
   function handleSubmit(isDraft: boolean) {
-    // Accept an exactly-typed employee name as a selection
-    const exactMatch =
-      form.requestKind === 'fonctionnel' && !form.beneficiaire
-        ? users.find(u => u.name.toLowerCase() === empQuery.trim().toLowerCase())
-        : undefined;
-    if (exactMatch) {
-      setForm(f => ({ ...f, beneficiaire: exactMatch.name }));
-      setEmpQuery(exactMatch.name);
-    }
     if (!isDraft) {
-      const e = validate(exactMatch?.name);
+      const e = validate();
       if (Object.keys(e).length) { setErrors(e); return; }
     }
     setDraft(isDraft);
     setSubmitted(true);
     if (!isDraft && onSubmitMission) {
-      const { requestKind, type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, beneficiaire, startDate, notes } = form;
-      onSubmitMission({ requestKind, type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, beneficiaire, startDate, notes });
+      const { type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, notes } = form;
+      onSubmitMission({ type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, vehicleNeeded, vehicleCategory, vehicleSubtype, assignedDriverId, assignedVehicleId, notes });
     }
   }
 
@@ -164,14 +119,12 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
           )}
         </div>
         <h3 className="text-ink text-xl font-bold mb-2">
-          {draft ? 'Brouillon enregistré' : form.requestKind === 'fonctionnel' ? "Demande d'affectation transmise" : 'Mission soumise avec succès'}
+          {draft ? 'Brouillon enregistré' : 'Mission soumise avec succès'}
         </h3>
         <p className="text-muted text-sm mb-8">
           {draft
             ? 'Votre mission a été sauvegardée en brouillon. Vous pouvez la soumettre ultérieurement.'
-            : form.requestKind === 'fonctionnel'
-              ? "Votre demande d'affectation d'un véhicule fonctionnel a été transmise au responsable de flotte."
-              : 'Votre demande de mission a été transmise au responsable de flotte pour validation.'}
+            : 'Votre demande de mission a été transmise avec conducteur et véhicule affectés.'}
         </p>
         <div className="flex gap-3 justify-center">
           <button onClick={() => onNavigate('my-missions')} className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-dark transition-colors">
@@ -180,9 +133,7 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
           <button
             onClick={() => {
               setSubmitted(false);
-              setEmpQuery('');
-              setEmpOpen(false);
-              setForm({ requestKind: 'service', type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, vehicleNeeded: true, vehicleCategory: '', vehicleSubtype: '', beneficiaire: '', startDate: '', notes: '', assignedDriverId: '', assignedVehicleId: '' });
+              setForm({ type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, vehicleNeeded: true, vehicleCategory: '', vehicleSubtype: '', notes: '', assignedDriverId: '', assignedVehicleId: '' });
             }}
             className="px-5 py-2.5 border border-border text-ink rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
           >
@@ -216,142 +167,13 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     <div className="max-w-3xl">
       <div className="bg-white rounded-xl border border-border shadow-sm">
         <div className="px-6 py-5 border-b border-border">
-          <h2 className="text-ink text-lg font-semibold">Nouvelle demande</h2>
-          <p className="text-muted text-sm mt-0.5">Mission de service ou affectation d'un véhicule fonctionnel</p>
+          <h2 className="text-ink text-lg font-semibold">Nouvelle demande de mission</h2>
+          <p className="text-muted text-sm mt-0.5">Renseignez les informations de votre déplacement professionnel</p>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Kind of request — asked first: mission trip or durable assignment */}
-          <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">1. Type de demande</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => set('requestKind', 'service')}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                  form.requestKind === 'service'
-                    ? 'border-navy bg-navy-light/60 text-navy'
-                    : 'border-border bg-white text-ink hover:border-navy/30'
-                }`}
-              >
-                <span className={`flex-shrink-0 ${form.requestKind === 'service' ? 'text-navy' : 'text-muted'}`}>
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M20 7H4a1 1 0 00-1 1v9a1 1 0 001 1h16a1 1 0 001-1V8a1 1 0 00-1-1zM8 7V5a1 1 0 011-1h6a1 1 0 011 1v2M3 13h18"/>
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">Mission — De service</p>
-                  <p className={`text-xs ${form.requestKind === 'service' ? 'text-navy/70' : 'text-muted'}`}>Déplacement ponctuel avec véhicule et conducteur</p>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => set('requestKind', 'fonctionnel')}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
-                  form.requestKind === 'fonctionnel'
-                    ? 'border-navy bg-navy-light/60 text-navy'
-                    : 'border-border bg-white text-ink hover:border-navy/30'
-                }`}
-              >
-                <span className={`flex-shrink-0 ${form.requestKind === 'fonctionnel' ? 'text-navy' : 'text-muted'}`}>
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">Affectation — Fonctionnel</p>
-                  <p className={`text-xs ${form.requestKind === 'fonctionnel' ? 'text-navy/70' : 'text-muted'}`}>Véhicule attribué durablement à un employé précis</p>
-                </div>
-              </button>
-            </div>
-          </div>
+          {/* Mission de service — conducteur et véhicule choisis dans la section Affectation plus bas */}
 
-          {form.requestKind === 'fonctionnel' ? (
-            <>
-              {/* Affectation: beneficiary, vehicle type, start date — no object, no return */}
-              <Field label="Employé bénéficiaire" error={errors.beneficiaire} required>
-                <div
-                  className="relative"
-                  onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setEmpOpen(false); }}
-                >
-                  <input
-                    type="text"
-                    placeholder="Tapez un nom, un matricule ou une structure…"
-                    className={`${inputClass('beneficiaire')} ${form.beneficiaire ? 'pr-9' : ''}`}
-                    value={empQuery}
-                    onChange={e => { setEmpQuery(e.target.value); set('beneficiaire', ''); setEmpOpen(true); }}
-                    onFocus={() => setEmpOpen(true)}
-                  />
-                  {form.beneficiaire && (
-                    <button
-                      type="button"
-                      title="Effacer la sélection"
-                      onClick={() => { set('beneficiaire', ''); setEmpQuery(''); setEmpOpen(true); }}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded text-muted hover:text-ink hover:bg-slate-100 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  )}
-                  {empOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 z-20 bg-white rounded-xl border border-border shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-                      {empMatches.length === 0 ? (
-                        <p className="px-4 py-3.5 text-sm text-muted">Aucun employé trouvé pour « {empQuery.trim()} »</p>
-                      ) : (
-                        empMatches.map(u => (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onMouseDown={e => { e.preventDefault(); pickEmployee(u.name); }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-navy-light/60 transition-colors"
-                          >
-                            <span className="w-7 h-7 rounded-full bg-navy/10 text-navy text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                              {u.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium text-ink truncate">{u.name}</span>
-                              <span className="block text-[11px] text-muted truncate">{u.matricule} · {u.structure}</span>
-                            </span>
-                            {form.beneficiaire === u.name && (
-                              <svg className="w-4 h-4 text-navy ml-auto flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
-                              </svg>
-                            )}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-                <p className="mt-1 text-[11px] text-muted">Attribution durable : pas d'objet de mission, pas de date de retour.</p>
-              </Field>
-              <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Type de véhicule souhaité</p>
-                <div className="flex flex-wrap gap-2">
-                  {CAR_TYPES.map(t => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => set('vehicleSubtype', t)}
-                      className={`px-3.5 py-1.5 rounded-lg border text-sm font-medium transition-all ${
-                        form.vehicleSubtype === t
-                          ? 'border-navy bg-navy text-white'
-                          : 'border-border bg-white text-ink hover:border-navy/40'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                {errors.vehicleSubtype && <p className="mt-1.5 text-xs text-danger flex items-center gap-1">⚠ {errors.vehicleSubtype}</p>}
-              </div>
-              <Field label="Date d'attribution" error={errors.startDate} required>
-                <input type="date" className={inputClass('startDate')} value={form.startDate} onChange={e => set('startDate', e.target.value)}/>
-              </Field>
-            </>
-          ) : (
-            <>
           {/* Type */}
           <Field label="Type de mission" required>
             <div className="flex gap-3">
@@ -458,7 +280,7 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
                       <button
                         key={opt.val}
                         type="button"
-                        onClick={() => { set('vehicleCategory', opt.val); set('vehicleSubtype', ''); set('vehicleUsage', ''); }}
+                        onClick={() => { set('vehicleCategory', opt.val); set('vehicleSubtype', ''); }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all text-left ${
                           form.vehicleCategory === opt.val
                             ? 'border-navy bg-navy-light/60 text-navy'
@@ -504,11 +326,9 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
               </div>
             )}
           </div>
-            </>
-          )}
 
           {/* Driver & Vehicle Assignment (for service missions with vehicle) */}
-          {form.requestKind === 'service' && form.vehicleNeeded && (
+          {form.vehicleNeeded && (
             <>
               <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
                 <div className="px-4 py-4">
@@ -592,7 +412,7 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
           )}
 
           {/* Notes / motif */}
-          <Field label={form.requestKind === 'fonctionnel' ? 'Motif de la demande' : 'Observations / Remarques'} optional>
+          <Field label="Observations / Remarques" optional>
             <textarea
               rows={3}
               placeholder="Informations complémentaires, contraintes particulières…"

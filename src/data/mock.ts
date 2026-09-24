@@ -86,7 +86,7 @@ export const vehicles: Vehicle[] = [
   { id: 'V001', registration: '16-12345-DZ', brand: 'Toyota', model: 'Land Cruiser', type: 'SUV', capacity: 7, status: 'disponible', lastInspection: '2026-01-10', nextInspection: '2027-01-10' },
   { id: 'V002', registration: '16-98765-DZ', brand: 'Renault', model: 'Symbol', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-02-15', nextInspection: '2027-02-15' },
   { id: 'V003', registration: '23-45678-DZ', brand: 'Hyundai', model: 'H1', type: 'Minibus', capacity: 12, status: 'maintenance', lastInspection: '2025-12-01', nextInspection: '2026-06-01' },
-  { id: 'V004', registration: '16-11111-DZ', brand: 'Peugeot', model: '301', type: 'Berline', capacity: 5, status: 'affecte', lastInspection: '2026-03-01', nextInspection: '2027-03-01' },
+  { id: 'V004', registration: '16-11111-DZ', brand: 'Peugeot', model: '301', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-03-01', nextInspection: '2027-03-01' },
   { id: 'V005', registration: '31-22222-DZ', brand: 'Mercedes', model: 'Vito', type: 'Minivan', capacity: 8, status: 'disponible', lastInspection: '2026-02-20', nextInspection: '2027-02-20' },
 ];
 
@@ -115,6 +115,8 @@ export const missions: Mission[] = [
     vehicleNeeded: true,
     vehicleType: 'SUV',
     status: 'en_attente',
+    vehicleId: 'V005',
+    driverId: 'D001',
     createdAt: '2026-03-12',
   },
   {
@@ -135,6 +137,8 @@ export const missions: Mission[] = [
     vehicleType: 'Berline',
     status: 'en_attente',
     validatedBy: 'Rachid Aouad',
+    vehicleId: 'V004',
+    driverId: 'D003',
     createdAt: '2026-03-13',
   },
   {

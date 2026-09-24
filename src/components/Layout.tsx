@@ -10,6 +10,7 @@ import {
   List as Menu,
   ListChecks,
   MagnifyingGlass,
+  Question,
   SignOut,
   Truck,
   UsersThree,
@@ -38,6 +39,7 @@ const PAGE_LABELS: Record<string, string> = {
   'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
   parametres: 'Paramètres',
+  aide: 'Aide & support',
 };
 
 const navItems = [
@@ -45,10 +47,12 @@ const navItems = [
   { id: 'fleet-missions', label: 'Missions', icon: ListChecks, badgeKey: 'pending' as const },
   { id: 'admin-drivers', label: 'Conducteurs', icon: UsersThree },
   { id: 'admin-vehicles', label: 'Véhicules', icon: Truck },
+  { id: 'notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' as const },
 ];
 
 const toolItems = [
   { id: 'parametres', label: 'Paramètres', icon: Gear },
+  { id: 'aide', label: 'Aide', icon: Question },
 ];
 
 export default function Layout({
@@ -69,11 +73,7 @@ export default function Layout({
     window.setTimeout(() => setToast(null), 4200);
   }
 
-  function handleToolClick(id: string, label: string) {
-    if (id === 'reports') {
-      showToast(`${label} sera disponible dans la prochaine version.`);
-      return;
-    }
+  function handleToolClick(id: string) {
     onNavigate(id);
   }
 
@@ -158,7 +158,8 @@ export default function Layout({
                 const Icon = item.icon;
                 const active = currentPage === item.id;
                 const count =
-                  item.badgeKey === 'pending' ? pendingCount : undefined;
+                  item.badgeKey === 'pending' ? pendingCount :
+                  item.badgeKey === 'unread' ? unread.length || undefined : undefined;
                 return (
                   <button
                     key={item.id}
@@ -206,7 +207,7 @@ export default function Layout({
                     key={item.id}
                     type="button"
                     title={!sidebarOpen ? item.label : undefined}
-                    onClick={() => handleToolClick(item.id, item.label)}
+                    onClick={() => handleToolClick(item.id)}
                     className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${
                       sidebarOpen ? '' : 'justify-center px-0'
                     } ${

@@ -49,6 +49,12 @@ const ALGERIA_BOUNDS: [[number, number], [number, number]] = [
 const ALGERIA_CENTER: [number, number] = [27.9, 2.4];
 const ALGERIA_OVERVIEW_ZOOM = 5;
 
+// Static route images (Google Maps style) shown while the backend live map is pending.
+// Save the screenshot as mission draft/public/maps/<MISSION_ID>.png
+const MISSION_MAP_IMAGES: Record<string, string> = {
+  'M2026-002': '/maps/M2026-002.png',
+};
+
 // Pin color per mission status
 const STATUS_COLOR: Record<string, string> = {
   en_cours: '#22D3EE',
@@ -185,6 +191,7 @@ function RouteMap({
   missions: Mission[];
   onSelect: (id: string) => void;
 }) {
+  const [staticFailed, setStaticFailed] = useState(false);
   // Overview: no mission selected — whole Algeria with one clickable pin per mission
   if (!mission) {
     return (
@@ -229,6 +236,24 @@ function RouteMap({
           );
         })}
       </MapContainer>
+    );
+  }
+
+  // Static preview image when available (falls back to the live map if missing)
+  const staticMap = mission ? MISSION_MAP_IMAGES[mission.id] : undefined;
+  if (staticMap && !staticFailed) {
+    return (
+      <div className="relative h-full w-full overflow-hidden bg-[#E8EEF3]">
+        <img
+          src={staticMap}
+          alt={`Itinéraire ${mission.departure} → ${mission.destination}`}
+          className="h-full w-full object-cover"
+          onError={() => setStaticFailed(true)}
+        />
+        <span className="absolute bottom-2 right-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-medium text-muted shadow">
+          Aperçu statique — suivi temps réel à venir
+        </span>
+      </div>
     );
   }
 

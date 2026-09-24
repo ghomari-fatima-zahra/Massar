@@ -2,17 +2,19 @@ import { useState } from 'react';
 import { vehicles, drivers, missions } from './data/mock';
 import type { Driver } from './data/mock';
 import Layout from './components/Layout';
+import VehicleTelemetryModal from './components/VehicleTelemetryModal';
 import NewMissionForm from './pages/NewMissionForm';
 import MissionDetail from './pages/MissionDetail';
 import FleetMissions from './pages/FleetMissions';
 import AdminDashboard from './pages/AdminDashboard';
 import NotificationsPage from './pages/NotificationsPage';
 import ParametresPage from './pages/ParametresPage';
+import AidePage from './pages/AidePage';
 
 type Page =
   | 'admin-dashboard' | 'fleet-missions' | 'new-mission' | 'mission-detail'
   | 'admin-drivers' | 'admin-vehicles' | 'admin-structures' | 'notifications'
-  | 'parametres';
+  | 'parametres' | 'aide';
 
 const PAGE_TITLES: Record<string, string> = {
   'admin-dashboard': 'Tableau de bord',
@@ -24,6 +26,7 @@ const PAGE_TITLES: Record<string, string> = {
   'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
   parametres: 'Paramètres',
+  aide: 'Aide & support',
 };
 
 const PAGE_BREADCRUMBS: Record<string, string> = {
@@ -54,7 +57,6 @@ export default function App() {
   }
 
   function handleSubmitMission(data: {
-    requestKind: 'service' | 'fonctionnel';
     type: string;
     object: string;
     departure: string;
@@ -69,15 +71,8 @@ export default function App() {
     vehicleSubtype: string;
     assignedDriverId: string;
     assignedVehicleId: string;
-    beneficiaire: string;
-    startDate: string;
     notes: string;
   }) {
-    if (data.requestKind === 'fonctionnel') {
-      // Fonctionnel assignment - just log it (mock)
-      console.log('Fonctionnel assignment:', data);
-      return;
-    }
     // Create new mission
     const newId = `M${new Date().getFullYear()}-${String(missions.length + 1).padStart(3, '0')}`;
     const newMission = {
@@ -144,13 +139,15 @@ export default function App() {
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
       case 'admin-vehicles':
-        return <AdminVehiclesPage onNavigate={navigate} />;
+        return <AdminVehiclesPage assignments={assignments} onNavigate={navigate} />;
       case 'admin-structures':
         return <AdminStructuresPage />;
       case 'notifications':
         return <NotificationsPage onNavigate={navigate} />;
       case 'parametres':
         return <ParametresPage onNavigate={navigate} />;
+      case 'aide':
+        return <AidePage />;
       default:
         return <AdminDashboard onNavigate={navigate} />;
     }
@@ -189,6 +186,8 @@ function nextMatricule(list: Driver[]) {
 function AdminDriversPage({ assignments }: { assignments: Record<string, { vehicleId: string; driverId: string }> }) {
   const [driverList, setDriverList] = useState<Driver[]>(drivers);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -214,7 +213,15 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
   }
 
   function openModal() {
+    setEditingId(null);
     setForm({ name: '', phone: '', licenceCategories: ['B'], licenceExpiry: '', status: 'disponible' });
+    setErrors({});
+    setShowModal(true);
+  }
+
+  function openEdit(d: Driver) {
+    setEditingId(d.id);
+    setForm({ name: d.name, phone: d.phone, licenceCategories: [...d.licenceCategories], licenceExpiry: d.licenceExpiry, status: d.status });
     setErrors({});
     setShowModal(true);
   }
@@ -226,6 +233,19 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
     if (form.licenceCategories.length === 0) e.licence = 'Choisissez au moins une catégorie de permis.';
     if (!form.licenceExpiry) e.licenceExpiry = "La date d'expiration du permis est requise.";
     if (Object.keys(e).length) { setErrors(e); return; }
+    if (editingId) {
+      setDriverList(list => list.map(d => d.id === editingId ? {
+        ...d,
+        name: form.name.trim(),
+        licenceCategories: [...form.licenceCategories].sort(),
+        licenceExpiry: form.licenceExpiry,
+        phone: form.phone.trim(),
+        status: form.status,
+      } : d));
+      setShowModal(false);
+      setEditingId(null);
+      return;
+    }
     const next: Driver = {
       id: `D${String(driverList.length + 1).padStart(3, '0')}`,
       name: form.name.trim(),
@@ -244,14 +264,32 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
       errors[field] ? 'border-danger focus:ring-danger/20 bg-danger-bg/30' : 'border-border focus:border-navy focus:ring-navy/15 bg-white'
     }`;
 
+  const driverQuery = search.trim().toLowerCase();
+  const filteredDrivers = driverList.filter(d =>
+    !driverQuery ||
+    `${d.name} ${d.matricule} ${d.phone}`.toLowerCase().includes(driverQuery),
+  );
+
   return (
     <div className="w-full space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-muted text-sm">{driverList.length} conducteur(s) enregistré(s)</p>
+        <p className="text-muted text-sm">{filteredDrivers.length} conducteur(s) enregistré(s)</p>
         <button onClick={openModal} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           Nouveau conducteur
         </button>
+      </div>
+      <div className="relative max-w-md">
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Rechercher un conducteur…"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-white text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:border-navy shadow-sm"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
       </div>
       <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
         <table className="w-full text-sm min-w-[780px]">
@@ -262,15 +300,20 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Permis</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Expiration</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Statut</th>
+              <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {driverList.map(d => {
+            {filteredDrivers.map(d => {
               const expiry = new Date(d.licenceExpiry);
               const daysLeft = Math.floor((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
               const warning = daysLeft < 90;
-              // Assigned by the admin to a mission → status flips to En mission
-              const assignedHere = Object.values(assignments).some(a => a.driverId === d.id);
+              // Assigned to a mission (session or en attente / en cours) → En mission
+              const sessionDriverIds = Object.values(assignments).map(a => a.driverId);
+              const missionDriverIds = missions
+                .filter(m => ['en_attente', 'en_cours'].includes(m.status) && m.driverId)
+                .map(m => m.driverId as string);
+              const assignedHere = [...sessionDriverIds, ...missionDriverIds].includes(d.id);
               const effStatus = assignedHere && d.status === 'disponible' ? 'en_mission' : d.status;
               return (
                 <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
@@ -299,6 +342,17 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
                       {effStatus === 'disponible' ? 'Disponible' : effStatus === 'en_mission' ? 'En mission' : effStatus === 'conge' ? 'En congé' : 'Indisponible'}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => openEdit(d)}
+                      title="Modifier le conducteur"
+                      className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-navy transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -312,8 +366,8 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <h3 className="text-ink text-lg font-bold">Nouveau conducteur</h3>
-                <p className="text-muted text-sm mt-0.5">Renseignez les informations du conducteur</p>
+                <h3 className="text-ink text-lg font-bold">{editingId ? 'Modifier le conducteur' : 'Nouveau conducteur'}</h3>
+                <p className="text-muted text-sm mt-0.5">{editingId ? 'Modifiez les informations — le statut En mission reste automatique' : 'Renseignez les informations du conducteur'}</p>
               </div>
               <button onClick={() => setShowModal(false)} aria-label="Fermer" className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-ink transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -377,7 +431,7 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
             </div>
             <div className="flex gap-3 justify-end mt-6">
               <button onClick={() => setShowModal(false)} className="px-5 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
-              <button onClick={handleAdd} className="px-6 py-2.5 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors">Ajouter le conducteur</button>
+              <button onClick={handleAdd} className="px-6 py-2.5 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors">{editingId ? 'Enregistrer' : 'Ajouter le conducteur'}</button>
             </div>
           </div>
         </div>
@@ -386,10 +440,13 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
   );
 }
 
-function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: string) => void }) {
+function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigate: (page: string) => void; assignments: Record<string, { vehicleId: string; driverId: string }> }) {
   const [vehicleList, setVehicleList] = useState(vehicles);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [form, setForm] = useState({
     brand: '',
     model: '',
@@ -407,23 +464,34 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
     setErrors(e => { const n = { ...e }; delete n[field]; return n; });
   }
 
-  function openModal(v?: typeof vehicleList[0]) {
-    if (v) {
-      setForm({
-        brand: v.brand,
-        model: v.model,
-        type: v.type,
-        registration: v.registration,
-        capacity: v.capacity,
-        status: v.status,
-        lastInspection: v.lastInspection,
-        nextInspection: v.nextInspection,
-      });
-    } else {
-      setForm({ brand: '', model: '', type: '', registration: '', capacity: 5, status: 'disponible', lastInspection: '', nextInspection: '' });
-    }
+  function openCreate() {
+    setEditingId(null);
+    setForm({ brand: '', model: '', type: '', registration: '', capacity: 5, status: 'disponible', lastInspection: '', nextInspection: '' });
     setErrors({});
-    setShowModal(true);
+    setShowForm(true);
+  }
+
+  function openEdit(id: string) {
+    const v = vehicleList.find(x => x.id === id);
+    if (!v) return;
+    setEditingId(id);
+    setForm({
+      brand: v.brand,
+      model: v.model,
+      type: v.type,
+      registration: v.registration,
+      capacity: v.capacity,
+      status: v.status,
+      lastInspection: v.lastInspection,
+      nextInspection: v.nextInspection,
+    });
+    setErrors({});
+    setDetailId(null);
+    setShowForm(true);
+  }
+
+  function setVehicleStatus(id: string, status: typeof vehicleList[0]['status']) {
+    setVehicleList(list => list.map(v => v.id === id ? { ...v, status } : v));
   }
 
   function handleSave() {
@@ -436,8 +504,8 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
     if (!form.nextInspection) e.nextInspection = 'La prochaine inspection est requise.';
     if (Object.keys(e).length) { setErrors(e); return; }
 
-    if (selectedVehicle) {
-      setVehicleList(list => list.map(v => v.id === selectedVehicle ? { ...v, ...form } : v));
+    if (editingId) {
+      setVehicleList(list => list.map(v => v.id === editingId ? { ...v, ...form } : v));
     } else {
       const next: typeof vehicleList[0] = {
         id: `V${String(vehicleList.length + 1).padStart(3, '0')}`,
@@ -445,13 +513,27 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
       };
       setVehicleList(list => [...list, next]);
     }
-    setShowModal(false);
-    setSelectedVehicle(null);
+    setShowForm(false);
+    setEditingId(null);
   }
 
-  function openDetails(id: string) {
-    setSelectedVehicle(id);
+  const detailVehicle = vehicleList.find(v => v.id === detailId) ?? null;
+  const vehicleTypes = [...new Set(vehicleList.map(v => v.type))];
+  const vQuery = search.trim().toLowerCase();
+  const filteredVehicles = vehicleList.filter(v =>
+    (typeFilter === 'all' || v.type === typeFilter) &&
+    (!vQuery || `${v.brand} ${v.model} ${v.registration}`.toLowerCase().includes(vQuery)),
+  );
+
+  function currentMissionFor(vid: string) {
+    const sessionMid = Object.entries(assignments).find(([, a]) => a.vehicleId === vid)?.[0];
+    const m = missions.find(mm => mm.id === sessionMid) ?? missions.find(mm => mm.vehicleId === vid && ['en_attente', 'en_cours'].includes(mm.status));
+    if (!m) return null;
+    const d = m.driverId ? drivers.find(dr => dr.id === m.driverId) ?? null : null;
+    return { mission: m, driver: d };
   }
+
+  const detailAssignment = detailId ? currentMissionFor(detailId) : null;
 
   const inputClass = (field: string) =>
     `w-full px-3.5 py-2.5 rounded-lg border text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 transition-all ${
@@ -468,11 +550,36 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
   return (
     <div className="w-full space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-muted text-sm">{vehicleList.length} véhicule(s) enregistré(s)</p>
-        <button onClick={() => { setSelectedVehicle(null); openModal(); }} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+        <p className="text-muted text-sm">{filteredVehicles.length} véhicule(s) enregistré(s)</p>
+        <button onClick={openCreate} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           Nouveau véhicule
         </button>
+      </div>
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Rechercher un véhicule…"
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-white text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:border-navy shadow-sm"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          aria-label="Filtrer par type"
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value)}
+          className="px-3 py-2.5 rounded-xl border border-border bg-white text-sm font-medium text-ink shadow-sm focus:outline-none focus:border-navy"
+        >
+          <option value="all">Tous les types</option>
+          {vehicleTypes.map(t => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
       </div>
 
       <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
@@ -490,8 +597,8 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {vehicleList.map(v => (
-              <tr key={v.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => openDetails(v.id)}>
+            {filteredVehicles.map(v => (
+              <tr key={v.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => setDetailId(v.id)}>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center flex-shrink-0">
@@ -517,7 +624,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
                   </span>
                 </td>
                 <td className="px-4 py-3.5 text-right">
-                  <button onClick={(e) => { e.stopPropagation(); openModal(v); }} className="text-navy text-xs font-medium hover:underline whitespace-nowrap">Modifier</button>
+                  <button onClick={(e) => { e.stopPropagation(); setDetailId(v.id); }} className="text-navy text-xs font-medium hover:underline whitespace-nowrap">Détails</button>
                 </td>
               </tr>
             ))}
@@ -525,16 +632,16 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
         </table>
       </div>
 
-      {/* Vehicle Details / Edit Modal */}
-      {(showModal || selectedVehicle) && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onMouseDown={e => { if (e.target === e.currentTarget) { setShowModal(false); setSelectedVehicle(null); } }}>
+      {/* Vehicle form modal (create / edit) */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onMouseDown={e => { if (e.target === e.currentTarget) { setShowForm(false); setEditingId(null); } }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 mb-5">
               <div>
-                <h3 className="text-ink text-lg font-bold">{selectedVehicle ? 'Détails du véhicule' : 'Nouveau véhicule'}</h3>
-                <p className="text-muted text-sm mt-0.5">{selectedVehicle ? 'Modifiez les informations' : 'Renseignez les informations du véhicule'}</p>
+                <h3 className="text-ink text-lg font-bold">{editingId ? 'Modifier le véhicule' : 'Nouveau véhicule'}</h3>
+                <p className="text-muted text-sm mt-0.5">{editingId ? 'Modifiez les informations' : 'Renseignez les informations du véhicule'}</p>
               </div>
-              <button onClick={() => { setShowModal(false); setSelectedVehicle(null); }} aria-label="Fermer" className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-ink transition-colors">
+              <button onClick={() => { setShowForm(false); setEditingId(null); }} aria-label="Fermer" className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-ink transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
@@ -586,11 +693,22 @@ function AdminVehiclesPage({ onNavigate: _onNavigate }: { onNavigate: (page: str
             </div>
 
             <div className="flex gap-3 justify-end mt-6">
-              <button onClick={() => { setShowModal(false); setSelectedVehicle(null); }} className="px-5 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
-              <button onClick={handleSave} className="px-6 py-2.5 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors">{selectedVehicle ? 'Enregistrer' : 'Ajouter le véhicule'}</button>
+              <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-5 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
+              <button onClick={handleSave} className="px-6 py-2.5 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors">{editingId ? 'Enregistrer' : 'Ajouter le véhicule'}</button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Vehicle telemetry & maintenance panel */}
+      {detailVehicle && (
+        <VehicleTelemetryModal
+          vehicle={detailVehicle}
+          assignment={detailAssignment}
+          onClose={() => setDetailId(null)}
+          onStatusChange={setVehicleStatus}
+          onEdit={(id) => openEdit(id)}
+        />
       )}
     </div>
   );
