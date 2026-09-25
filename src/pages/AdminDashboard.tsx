@@ -32,6 +32,7 @@ import type { Status } from '../data/mock';
 
 interface Props {
   onNavigate: (page: string, id?: string) => void;
+  statusOverrides: Record<string, Status>;
 }
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -229,12 +230,13 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function AdminDashboard({ onNavigate }: Props) {
+export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   const [period, setPeriod] = useState('Cette année');
   const [toast, setToast] = useState<string | null>(null);
 
   const totalMissions = missions.length;
-  const activeMissions = missions.filter((m) => m.status === 'en_cours');
+  const effMissions = missions.map((m) => (statusOverrides[m.id] ? { ...m, status: statusOverrides[m.id] } : m));
+  const activeMissions = effMissions.filter((m) => m.status === 'en_cours');
   const availableVehicles = vehicles.filter((v) => v.status === 'disponible');
   const maintenanceVehicles = vehicles.filter((v) => v.status === 'maintenance');
   const assignedVehicles = vehicles.filter(
@@ -247,18 +249,18 @@ export default function AdminDashboard({ onNavigate }: Props) {
   const currentMonth = new Date().getMonth();
   const missionData = MONTH_LABELS.map((month, idx) => ({
     month,
-    missions: missions.filter((m) => {
+    missions: effMissions.filter((m) => {
       const d = new Date(m.departureDate);
       return !Number.isNaN(d.getTime()) && d.getMonth() === idx;
     }).length,
     current: idx === currentMonth,
   }));
 
-  const recentMissions = [...missions]
+  const recentMissions = [...effMissions]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     .slice(0, 5);
 
-  const recentActivity = [...missions].slice(0, 4).map((m) => ({
+  const recentActivity = [...effMissions].slice(0, 4).map((m) => ({
     title: `${m.object} — ${STATUS_LABELS[m.status]}`,
     meta: `${m.departure} → ${m.destination} · ${new Date(m.departureDate).toLocaleDateString('fr-DZ')}`,
     icon: m.status === 'terminee' ? Check : m.status === 'en_attente' ? Clock : ListChecks,

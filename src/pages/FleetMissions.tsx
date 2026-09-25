@@ -115,18 +115,21 @@ interface Props {
   onNavigate: (page: string, id?: string) => void;
   initialFilter?: string;
   assignments: Record<string, { vehicleId: string; driverId: string }>;
+  statusOverrides: Record<string, Status>;
   onStartMission: (missionId: string) => void;
 }
 
-export default function FleetMissions({ onNavigate, initialFilter, assignments, onStartMission }: Props) {
+export default function FleetMissions({ onNavigate, initialFilter, assignments, statusOverrides, onStartMission }: Props) {
   const [selectedId, setSelectedId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>(initialFilter ?? 'all');
   const [search, setSearch] = useState('');
 
-  // Missions with assignments switch to En cours
+  // Effective status: session assignments and driver-started missions switch to En cours
   const effMissions = missions.map(m => {
     const a = assignments[m.id];
-    return a ? { ...m, status: 'en_cours' as Status, vehicleId: a.vehicleId, driverId: a.driverId } : m;
+    if (a) return { ...m, status: 'en_cours' as Status, vehicleId: a.vehicleId, driverId: a.driverId };
+    const override = statusOverrides[m.id];
+    return override ? { ...m, status: override } : m;
   });
 
   const filtered = effMissions.filter(m => {

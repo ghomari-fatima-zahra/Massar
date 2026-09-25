@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { vehicles, drivers, missions } from './data/mock';
-import type { Driver } from './data/mock';
+import type { Driver, Status } from './data/mock';
+import { Bus, Car } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import VehicleTelemetryModal from './components/VehicleTelemetryModal';
@@ -47,14 +48,16 @@ export default function App() {
   const [history, setHistory] = useState<Page[]>([]);
   // Admin assignments at creation: mission starts with driver+vehicle assigned
   const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
+  // Driver-pressed starts: mission status switches En attente → En cours
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, Status>>({});
 
-  // Driver starts the mission
+  // Driver presses "Démarrer": the mission starts immediately
   function handleStartMission(missionId: string) {
-    const m = missions.find(m => m.id === missionId);
-    const a = assignments[missionId];
-    if (!m || !a) return;
-    // In a real app this would mutate server state; here we just treat it as "en_cours"
-    // The FleetMissions page computes effective status from assignments
+    const m = missions.find(mm => mm.id === missionId);
+    if (!m || m.status !== 'en_attente') return;
+    const hasDriver = assignments[missionId]?.driverId || m.driverId;
+    if (!hasDriver) return;
+    setStatusOverrides(o => ({ ...o, [missionId]: 'en_cours' }));
   }
 
   function handleSubmitMission(data: {
@@ -136,13 +139,13 @@ export default function App() {
   function renderPage() {
     switch (currentPage) {
       case 'admin-dashboard':
-        return <AdminDashboard onNavigate={navigate} />;
+        return <AdminDashboard statusOverrides={statusOverrides} onNavigate={navigate} />;
       case 'fleet-missions':
-        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} onStartMission={handleStartMission} onNavigate={navigate} />;
+        return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
         return <NewMissionForm onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
       case 'mission-detail':
-        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} onNavigate={navigate} onBack={goBack} />;
+        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} />;
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
       case 'admin-vehicles':
@@ -156,7 +159,7 @@ export default function App() {
       case 'aide':
         return <AidePage />;
       default:
-        return <AdminDashboard onNavigate={navigate} />;
+        return <AdminDashboard statusOverrides={statusOverrides} onNavigate={navigate} />;
     }
   }
 
@@ -185,6 +188,13 @@ const DRIVER_STATUSES: { id: Driver['status']; label: string }[] = [
 ];
 
 const LICENCE_CATEGORIES = ['A', 'B', 'C', 'D', 'E'];
+
+// Row icon by vehicle type: bus for collective transport, car otherwise
+function VehicleRowIcon({ type }: { type: string }) {
+  const t = type.toLowerCase();
+  const Icon = t.includes('bus') || t.includes('minivan') ? Bus : Car;
+  return <Icon size={20} weight="regular" className="text-navy" />;
+}
 
 // Next driver matricule in sequence (DRV-XXXX), assigned automatically
 function nextMatricule(list: Driver[]) {
@@ -616,10 +626,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-navy/10 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-navy" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0z"/>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 2h10l2-2zm0 0l3-4h2l2 4-1 2H13"/>
-                      </svg>
+                      <VehicleRowIcon type={v.type} />
                     </div>
                     <div>
                       <p className="text-ink font-semibold">{v.brand} {v.model}</p>
@@ -685,15 +692,17 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                 <label className="block text-sm font-medium text-ink mb-1.5">Capacité <span className="text-danger">*</span></label>
                 <input type="number" min="1" max="60" className={inputClass('capacity')} value={form.capacity} onChange={e => setField('capacity', parseInt(e.target.value) || 0)} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-ink mb-1.5">Statut</label>
-                <select className={inputClass('status')} value={form.status} onChange={e => setField('status', e.target.value as 'disponible' | 'affecte' | 'maintenance' | 'indisponible')}>
-                  <option value="disponible">Disponible</option>
-                  <option value="affecte">Affecté</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="indisponible">Indisponible</option>
-                </select>
-              </div>
+              {editingId && (
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Statut</label>
+                  <select className={inputClass('status')} value={form.status} onChange={e => setField('status', e.target.value as 'disponible' | 'affecte' | 'maintenance' | 'indisponible')}>
+                    <option value="disponible">Disponible</option>
+                    <option value="affecte">Affecté</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="indisponible">Indisponible</option>
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-ink mb-1.5">Dernière inspection <span className="text-danger">*</span></label>
                 <input type="date" className={inputClass('lastInspection')} value={form.lastInspection} onChange={e => setField('lastInspection', e.target.value)} />
