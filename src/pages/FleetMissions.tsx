@@ -21,6 +21,15 @@ const STATUS_DOT: Record<string, string> = {
   annulee: 'bg-red-400', brouillon: 'bg-slate-400',
 };
 
+type MissionSort = 'created_desc' | 'created_asc' | 'departure_asc' | 'departure_desc';
+
+const MISSION_SORT_LABELS: Record<MissionSort, string> = {
+  created_desc: 'Plus récemment créées',
+  created_asc: 'Plus anciennement créées',
+  departure_asc: 'Départ le plus proche',
+  departure_desc: 'Départ le plus lointain',
+};
+
 interface Props {
   onNavigate: (page: string, id?: string) => void;
   initialFilter?: string;
@@ -33,6 +42,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
   const [selectedId, setSelectedId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>(initialFilter ?? 'all');
   const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<MissionSort>('created_desc');
 
   // An assignment does not start a mission. The driver-start action is the
   // only event that promotes En attente to En cours.
@@ -52,6 +62,12 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
         !m.employee.toLowerCase().includes(search.toLowerCase()) &&
         !missionRouteSummary(m).toLowerCase().includes(search.toLowerCase())) return false;
     return true;
+  });
+
+  const sortedMissions = [...filtered].sort((a, b) => {
+    const field = sortOrder.startsWith('created') ? 'createdAt' : 'departureDate';
+    const difference = new Date(a[field]).getTime() - new Date(b[field]).getTime();
+    return sortOrder.endsWith('desc') ? -difference : difference;
   });
 
   const selected = effMissions.find(m => m.id === selectedId) ?? null;
@@ -138,14 +154,34 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
           )}
         </div>
 
+        {/* Mission ordering */}
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="mission-sort-order"
+            className="text-[11px] font-semibold uppercase tracking-wider text-muted flex-shrink-0"
+          >
+            Trier
+          </label>
+          <select
+            id="mission-sort-order"
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value as MissionSort)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-border bg-white text-xs font-medium text-ink shadow-sm focus:outline-none focus:border-navy"
+          >
+            {Object.entries(MISSION_SORT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Mission cards */}
         <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin pr-1">
-          {filtered.length === 0 && (
+          {sortedMissions.length === 0 && (
             <div className="py-12 text-center">
               <p className="text-muted text-sm">Aucune mission trouvée</p>
             </div>
           )}
-          {filtered.map(m => {
+          {sortedMissions.map(m => {
             const isSelected = selectedId === m.id;
             return (
               <button
