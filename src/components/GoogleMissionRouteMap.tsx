@@ -61,6 +61,7 @@ export default function GoogleMissionRouteMap({ mission, className = '' }: Props
   useEffect(() => {
     let disposed = false;
     let markers: any[] = [];
+    let polylines: any[] = [];
 
     setError('');
     setRouteStats(null);
@@ -83,6 +84,7 @@ export default function GoogleMissionRouteMap({ mission, className = '' }: Props
         const renderer = new googleApi.maps.DirectionsRenderer({
           map,
           suppressMarkers: true,
+          suppressPolylines: true,
           draggable: true,
           preserveViewport: false,
           polylineOptions: { strokeColor: '#4c1d95', strokeOpacity: 0.96, strokeWeight: 6 },
@@ -106,6 +108,34 @@ export default function GoogleMissionRouteMap({ mission, className = '' }: Props
 
           renderer.setDirections(result);
           const route = result.routes[0];
+          const inProgress = mission.status === 'en_cours';
+          const completed = mission.status === 'terminee';
+          const draft = mission.status === 'brouillon';
+          const rejected = mission.status === 'rejetee' || mission.status === 'annulee';
+          const progress = inProgress ? 0.8 : completed ? 1 : 0;
+          const routePath = route.overview_path ?? [];
+          const splitIndex = Math.round(progress * Math.max(routePath.length - 1, 0));
+          const dottedOptions = {
+            strokeOpacity: 0,
+            icons: [{
+              icon: { path: googleApi.maps.SymbolPath.CIRCLE, scale: 2.4, fillColor: draft ? '#94a3b8' : rejected ? '#ef4444' : '#f59e0b', fillOpacity: 1, strokeOpacity: 0 },
+              offset: '0',
+              repeat: '14px',
+            }],
+          };
+
+          if (inProgress && routePath.length > 1) {
+            polylines.push(new googleApi.maps.Polyline({ map, path: routePath.slice(splitIndex), geodesic: true, ...dottedOptions }));
+            polylines.push(new googleApi.maps.Polyline({ map, path: routePath.slice(0, splitIndex + 1), geodesic: true, strokeColor: '#16a34a', strokeOpacity: 0.98, strokeWeight: 6 }));
+          } else {
+            const color = completed ? '#16a34a' : draft ? '#94a3b8' : rejected ? '#ef4444' : '#f59e0b';
+            polylines.push(new googleApi.maps.Polyline({
+              map,
+              path: routePath,
+              geodesic: true,
+              ...(completed ? { strokeColor: color, strokeOpacity: 0.98, strokeWeight: 6 } : { ...dottedOptions, icons: [{ ...dottedOptions.icons[0], icon: { ...dottedOptions.icons[0].icon, fillColor: color } }] }),
+            }));
+          }
           const distanceMeters = route.legs.reduce((total: number, leg: any) => total + (leg.distance?.value ?? 0), 0);
           const durationSeconds = route.legs.reduce((total: number, leg: any) => total + (leg.duration?.value ?? 0), 0);
           setRouteStats({
@@ -129,6 +159,7 @@ export default function GoogleMissionRouteMap({ mission, className = '' }: Props
     return () => {
       disposed = true;
       markers.forEach(marker => marker.setMap(null));
+      polylines.forEach(polyline => polyline.setMap(null));
     };
   }, [mission]);
 

@@ -181,16 +181,18 @@ function LeafletMissionRouteMap({ mission, className = '' }: { mission: Mission;
   }, [mission.id]);
 
   const route = roadRoute ?? fallbackRoute;
-  const progress = STATUS_PROGRESS[mission.status] ?? 0;
+  const inProgress = mission.status === 'en_cours';
+  const progress = inProgress ? STATUS_PROGRESS.en_cours : mission.status === 'terminee' ? 1 : 0;
   const progressIndex = Math.round(progress * (route.length - 1));
   const traveled = route.slice(0, Math.max(progressIndex + 1, 2));
+  const remaining = route.slice(Math.max(progressIndex, 0));
   const current = route[Math.min(Math.round(progress * (route.length - 1)), route.length - 1)] ?? from;
   const rejected = mission.status === 'rejetee' || mission.status === 'annulee';
+  const draft = mission.status === 'brouillon';
+  const pending = !draft && !inProgress && !rejected && mission.status !== 'terminee';
   const completed = mission.status === 'terminee';
   const active = ['affectee', 'confirmee', 'en_cours'].includes(mission.status);
-  // Keep the route legible against the basemap and close to the supplied
-  // reference screenshot's purple road highlight.
-  const routeColor = rejected ? '#ef4444' : completed ? '#10b981' : '#4c1d95';
+  const routeColor = rejected ? '#ef4444' : draft ? '#94a3b8' : completed ? '#16a34a' : pending ? '#f59e0b' : '#4c1d95';
 
   return (
     <div className={`mission-route-map ${className}`}>
@@ -207,17 +209,24 @@ function LeafletMissionRouteMap({ mission, className = '' }: { mission: Mission;
         />
         <FitRoute positions={route} />
 
-        {!rejected && (
-          <>
-            <Polyline positions={route} pathOptions={{ color: '#ffffff', weight: 11, opacity: 0.78, lineCap: 'round', lineJoin: 'round' }} />
-            <Polyline positions={route} pathOptions={{ color: completed ? '#10b981' : '#4c1d95', weight: 6, opacity: 0.96, lineCap: 'round', lineJoin: 'round' }} />
-          </>
+        {!rejected && !inProgress && (
+          <Polyline
+            positions={route}
+            pathOptions={{
+              color: routeColor,
+              weight: completed ? 7 : 6,
+              opacity: 0.96,
+              dashArray: draft || pending ? '1 11' : undefined,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
         )}
 
-        {!rejected && progress > 0 && (
+        {!rejected && inProgress && (
           <>
-            <Polyline positions={traveled} pathOptions={{ color: routeColor, weight: 13, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }} />
-            <Polyline positions={traveled} pathOptions={{ color: routeColor, weight: 6, opacity: 0.98, lineCap: 'round', lineJoin: 'round' }} />
+            <Polyline positions={remaining} pathOptions={{ color: '#94a3b8', weight: 6, opacity: 0.9, dashArray: '1 11', lineCap: 'round', lineJoin: 'round' }} />
+            <Polyline positions={traveled} pathOptions={{ color: '#16a34a', weight: 7, opacity: 0.98, lineCap: 'round', lineJoin: 'round' }} />
           </>
         )}
 
@@ -232,7 +241,7 @@ function LeafletMissionRouteMap({ mission, className = '' }: { mission: Mission;
             <Popup>{stop.sequence}. {stop.name}</Popup>
           </Marker>
         ))}
-        {active && progress > 0 && progress < 1 && (
+        {active && inProgress && progress > 0 && progress < 1 && (
           <Marker position={current} icon={makeVehicleIcon()}>
             <Popup>Véhicule en route</Popup>
           </Marker>
