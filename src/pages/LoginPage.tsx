@@ -1,0 +1,227 @@
+import { useState } from 'react';
+
+interface Props {
+  onLogin: () => void;
+}
+
+function UserIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M5.5 19c.7-3.1 3.1-4.8 6.5-4.8s5.8 1.7 6.5 4.8" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5.5" y="10.2" width="13" height="9.5" rx="2" />
+      <path d="M8.2 10.2V7.8a3.8 3.8 0 0 1 7.6 0v2.4" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.5 12h14" />
+      <path d="m13 6.5 5.5 5.5-5.5 5.5" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m6.5 12.5 3.5 3.5 7.5-8" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 8v4.5M12 16h.01" />
+    </svg>
+  );
+}
+
+export default function LoginPage({ onLogin }: Props) {
+  const [email, setEmail] = useState('n.ferdi@dot.dz');
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Veuillez renseigner votre identifiant et votre mot de passe.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+    window.setTimeout(() => {
+      setLoading(false);
+      onLogin();
+    }, 800);
+  }
+
+  function handleForgotPassword() {
+    setForgotSent(true);
+    setError('');
+  }
+
+  return (
+    <main className="login-shell">
+      <section className="login-visual" aria-label="Présentation de Massar">
+        <div className="login-visual-grid" />
+        <div className="login-orb login-orb-one" />
+        <div className="login-orb login-orb-two" />
+
+        <header className="login-brand-row">
+          <div className="login-brand-lockup">
+            <div className="login-supplied-logo" aria-hidden="true">
+              <img src="/logo-size-variations.png" alt="" />
+            </div>
+            <div>
+              <p className="login-brand-name">Massar</p>
+            </div>
+          </div>
+          <div className="login-org-pill">
+            <span className="login-org-dot" />
+            DG
+          </div>
+        </header>
+
+        <div className="login-visual-content">
+          <p className="login-kicker"><span /> Plateforme opérationnelle</p>
+          <h1>
+            Chaque mission,
+            <br />
+            <em>sur la bonne voie.</em>
+          </h1>
+          <p className="login-visual-description">
+            Pilotez les déplacements professionnels, les véhicules et les équipes depuis un espace unique.
+          </p>
+
+        </div>
+
+        <footer className="login-visual-footer">
+          <span>Une seule route. Des missions mieux orchestrées.</span>
+          <span className="login-footer-status"><i /> Système opérationnel</span>
+        </footer>
+      </section>
+
+      <section className="login-panel">
+        <div className="login-panel-inner">
+          <div className="login-mobile-brand">
+            <div className="login-supplied-logo" aria-hidden="true">
+              <img src="/logo-size-variations.png" alt="" />
+            </div>
+            <div>
+              <p className="login-brand-name">Massar</p>
+            </div>
+          </div>
+
+          <div className="login-institution-lockup">
+            <img src="/logo-algerie-telecom.svg" alt="Algérie Télécom" />
+            <span>ESPACE INTERNE</span>
+          </div>
+
+          <div className="login-form-header">
+            <span className="login-access-badge"><i /> Accès sécurisé</span>
+            <h2>Bienvenue sur<br /><strong>Massar</strong></h2>
+            <p>Connectez-vous pour accéder à votre espace de gestion.</p>
+          </div>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-field">
+              <label htmlFor="login-email">Identifiant professionnel</label>
+              <div className="login-input-wrap">
+                <UserIcon />
+                <input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="prenom.nom@dot.dz"
+                  autoComplete="username"
+                />
+              </div>
+            </div>
+
+            <div className="login-field">
+              <div className="login-label-row">
+                <label htmlFor="login-password">Mot de passe</label>
+                <button type="button" onClick={handleForgotPassword}>Mot de passe oublié ?</button>
+              </div>
+              <div className="login-input-wrap">
+                <LockIcon />
+                <input
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="Votre mot de passe"
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+
+            <div className="login-options">
+              <label className="login-remember">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                <span className="login-checkbox"><CheckIcon /></span>
+                <span>Se souvenir de moi</span>
+              </label>
+              <span className="login-session"><LockIcon /> Session privée</span>
+            </div>
+
+            {forgotSent && (
+              <p className="login-notice" role="status">
+                Un lien de réinitialisation sera envoyé à votre adresse professionnelle.
+              </p>
+            )}
+
+            {error && (
+              <div className="login-error" role="alert">
+                <AlertIcon />
+                <p>{error}</p>
+              </div>
+            )}
+
+            <button className="login-submit" type="submit" disabled={loading}>
+              {loading ? (
+                <span className="login-loading"><span /> Connexion en cours…</span>
+              ) : (
+                <span>Se connecter <ArrowIcon /></span>
+              )}
+            </button>
+          </form>
+
+          <div className="login-divider"><span>ACCÈS RÉSERVÉ AU PERSONNEL</span></div>
+
+          <p className="login-support">
+            Besoin d'aide ? <button type="button">Contacter le support informatique</button>
+          </p>
+
+          <footer className="login-panel-footer">
+            <span>© 2026 Algérie Télécom · DG</span>
+            <span>Version 1.0.0</span>
+          </footer>
+        </div>
+      </section>
+    </main>
+  );
+}

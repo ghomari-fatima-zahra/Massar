@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 220" role="img" aria-labelledby="title desc">
+  <title id="title">Massar Fleet logo</title>
+  <desc id="desc">A blue route and orange destination point beside the Massar Fleet wordmark.</desc>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M66 154C76 104 111 74 158 74c37 0 55 19 78 19 25 0 39-19 69-19 34 0 60 17 76 43" stroke="#075985" stroke-width="18"/>
+    <path d="M66 154h192" stroke="#F59E0B" stroke-width="12" stroke-dasharray="2 26"/>
+    <circle cx="66" cy="154" r="16" fill="#075985" stroke="white" stroke-width="7"/>
+    <circle cx="384" cy="117" r="19" fill="#F97316" stroke="white" stroke-width="7"/>
+  </g>
+  <text x="440" y="116" fill="#0F172A" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700" letter-spacing="-2">Massar</text>
+  <text x="444" y="155" fill="#475569" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="600" letter-spacing="5">FLEET</text>
+  <text x="444" y="188" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="18" letter-spacing="1">MISSIONS AND FLEET MANAGEMENT</text>
+</svg>
