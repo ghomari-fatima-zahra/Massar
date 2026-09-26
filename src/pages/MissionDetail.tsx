@@ -9,11 +9,13 @@ interface Props {
   statusOverrides: Record<string, Status>;
   onNavigate: (page: string) => void;
   onBack: () => void;
+  onCancelMission: (missionId: string) => void;
+  onEditMission: (missionId: string) => void;
 }
 
 const STATUS_ORDER: Status[] = ['en_attente', 'en_cours', 'terminee'];
 
-export default function MissionDetail({ missionId, assignments, statusOverrides, onNavigate: _onNavigate, onBack }: Props) {
+export default function MissionDetail({ missionId, assignments, statusOverrides, onNavigate: _onNavigate, onBack, onCancelMission, onEditMission }: Props) {
   const base = missions.find(m => m.id === missionId) || missions[0];
   const a = assignments[base.id];
   const o = statusOverrides[base.id];
@@ -55,9 +57,24 @@ export default function MissionDetail({ missionId, assignments, statusOverrides,
           <p className="text-muted text-sm mt-1">{missionRouteSummary(mission)} · {mission.passengers} passager(s)</p>
         </div>
         {['brouillon', 'en_attente'].includes(mission.status) && (
-          <button className="flex-shrink-0 px-4 py-2 border border-danger text-danger text-sm font-medium rounded-lg hover:bg-danger-bg transition-colors">
-            Annuler la mission
-          </button>
+          <div className="flex flex-wrap justify-end gap-2 flex-shrink-0">
+            {mission.status === 'brouillon' && (
+              <button
+                type="button"
+                onClick={() => onEditMission(mission.id)}
+                className="px-4 py-2 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors"
+              >
+                Modifier le brouillon
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onCancelMission(mission.id)}
+              className="px-4 py-2 border border-danger text-danger text-sm font-medium rounded-lg hover:bg-danger-bg transition-colors"
+            >
+              Annuler la mission
+            </button>
+          </div>
         )}
       </div>
 

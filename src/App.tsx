@@ -44,6 +44,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('admin-dashboard');
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
+  const [editingMissionId, setEditingMissionId] = useState<string | undefined>();
   const [fleetFilter, setFleetFilter] = useState<string>('all');
   const [history, setHistory] = useState<Page[]>([]);
   // Admin assignments at creation: mission starts with driver+vehicle assigned
@@ -60,7 +61,15 @@ export default function App() {
     setStatusOverrides(o => ({ ...o, [missionId]: 'en_cours' }));
   }
 
+  function handleCancelMission(missionId: string) {
+    const mission = missions.find(item => item.id === missionId);
+    if (!mission || ['terminee', 'annulee'].includes(mission.status)) return;
+    setStatusOverrides(o => ({ ...o, [missionId]: 'annulee' }));
+  }
+
   function handleSubmitMission(data: {
+    missionId?: string;
+    saveAsDraft: boolean;
     demandeurId: string;
     type: string;
     object: string;
@@ -76,10 +85,55 @@ export default function App() {
     assignedVehicleId: string;
     notes: string;
   }) {
-    // Create new mission: assignment is saved immediately, but the mission
-    // stays En attente until the driver starts it from the mobile flow.
     const assignedVehicle = vehicles.find(v => v.id === data.assignedVehicleId);
     const demandeur = users.find(u => u.id === data.demandeurId) ?? users.find(u => u.role === 'employee');
+
+    if (data.missionId) {
+      const index = missions.findIndex(mission => mission.id === data.missionId);
+      if (index === -1) return;
+      const existing = missions[index];
+      missions[index] = {
+        ...existing,
+        demandeurId: demandeur?.id ?? data.demandeurId,
+        employee: demandeur?.name ?? existing.employee,
+        matricule: demandeur?.matricule ?? existing.matricule,
+        structure: demandeur?.structure ?? existing.structure,
+        type: data.type as 'interne' | 'externe',
+        object: data.object,
+        departure: data.departure,
+        destination: data.destination,
+        route: data.route,
+        departureDate: data.departureDate,
+        returnDate: data.returnDate,
+        departureTime: data.departureTime,
+        returnTime: data.returnTime,
+        passengers: data.passengers,
+        vehicleNeeded: Boolean(data.assignedVehicleId),
+        vehicleType: assignedVehicle?.type ?? '',
+        status: data.saveAsDraft ? 'brouillon' : 'en_attente',
+        vehicleId: data.assignedVehicleId || undefined,
+        driverId: data.assignedDriverId || undefined,
+        validatedBy: undefined,
+        rejectionReason: undefined,
+      };
+      setAssignments(current => {
+        const next = { ...current };
+        if (data.assignedVehicleId && data.assignedDriverId) {
+          next[data.missionId!] = { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId };
+        } else {
+          delete next[data.missionId!];
+        }
+        return next;
+      });
+      setStatusOverrides(current => {
+        const next = { ...current };
+        delete next[data.missionId!];
+        return next;
+      });
+      return;
+    }
+
+    // A newly saved mission is either a real draft or pending, never already in progress.
     const newId = `M${new Date().getFullYear()}-${String(missions.length + 1).padStart(3, '0')}`;
     const newMission = {
       id: newId,
@@ -97,16 +151,17 @@ export default function App() {
       departureTime: data.departureTime,
       returnTime: data.returnTime,
       passengers: data.passengers,
-      vehicleNeeded: true,
+      vehicleNeeded: Boolean(data.assignedVehicleId),
       vehicleType: assignedVehicle?.type ?? '',
-      status: 'en_attente' as const,
-      vehicleId: data.assignedVehicleId,
-      driverId: data.assignedDriverId,
+      status: (data.saveAsDraft ? 'brouillon' : 'en_attente') as const,
+      vehicleId: data.assignedVehicleId || undefined,
+      driverId: data.assignedDriverId || undefined,
       createdAt: new Date().toISOString().split('T')[0],
     };
     missions.push(newMission);
-    // Save assignment without changing the mission status.
-    setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
+    if (data.assignedVehicleId && data.assignedDriverId) {
+      setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
+    }
   }
 
   function handleLogin() {
@@ -128,6 +183,7 @@ export default function App() {
     setHistory((h) => [...h.slice(-19), currentPage]);
     setCurrentPage(next);
     if (next === 'mission-detail' && id) setSelectedMissionId(id);
+    if (next === 'new-mission') setEditingMissionId(id);
     if (next === 'fleet-missions') setFleetFilter(id ?? 'all');
   }
 
@@ -149,9 +205,9 @@ export default function App() {
       case 'fleet-missions':
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
+        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
       case 'mission-detail':
-        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} />;
+        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
       case 'admin-vehicles':

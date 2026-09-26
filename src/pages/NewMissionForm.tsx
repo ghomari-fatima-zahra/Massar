@@ -1,13 +1,35 @@
 import { useState } from 'react';
-import { makeMissionRoute, vehicles, drivers, users } from '../data/mock';
-import type { MissionRoute } from '../data/mock';
+import { getMissionStops, makeMissionRoute, vehicles, drivers, users } from '../data/mock';
+import type { Mission, MissionRoute } from '../data/mock';
+
+interface FormState {
+  demandeurId: string;
+  demandeurQuery: string;
+  type: string;
+  object: string;
+  departure: string;
+  destination: string;
+  intermediateStops: string[];
+  roundTrip: boolean;
+  departureDate: string;
+  departureTime: string;
+  returnDate: string;
+  returnTime: string;
+  passengers: number;
+  notes: string;
+  assignedDriverId: string;
+  vehicleCategory: '' | 'car' | 'bus';
+  assignedVehicleId: string;
+}
 
 interface Props {
   onNavigate: (page: string) => void;
   onBack: () => void;
+  initialMission?: Mission | null;
   onSubmitMission?: (data: {
+    missionId?: string;
+    saveAsDraft: boolean;
     demandeurId: string;
-    demandeurQuery: string;
     type: string;
     object: string;
     departure: string;
@@ -24,46 +46,44 @@ interface Props {
   }) => void;
 }
 
-export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: Props) {
-  interface FormState {
-    demandeurId: string;
-    type: string;
-    object: string;
-    departure: string;
-    destination: string;
-    intermediateStops: string[];
-    roundTrip: boolean;
-    departureDate: string;
-    departureTime: string;
-    returnDate: string;
-    returnTime: string;
-    passengers: number;
-    notes: string;
-    assignedDriverId: string;
-    vehicleCategory: '' | 'car' | 'bus';
-    assignedVehicleId: string;
+function missionToForm(mission?: Mission | null): FormState {
+  if (!mission) {
+    return {
+      demandeurId: '', demandeurQuery: '', type: 'externe', object: '', departure: '', destination: '',
+      intermediateStops: [], roundTrip: false, departureDate: '', departureTime: '08:00', returnDate: '',
+      returnTime: '', passengers: 1, notes: '', assignedDriverId: '', vehicleCategory: '', assignedVehicleId: '',
+    };
   }
 
-  const [form, setForm] = useState<FormState>({
-    demandeurId: '',
-    demandeurQuery: '',
-    type: 'externe',
-    object: '',
-    departure: '',
-    destination: '',
-    intermediateStops: [],
-    roundTrip: false,
-    departureDate: '',
-    departureTime: '08:00',
-    returnDate: '',
-    returnTime: '',
-    passengers: 1,
+  const stops = getMissionStops(mission).map(stop => stop.name);
+  const routeStops = mission.route.roundTrip && stops.length > 1 && stops.at(-1) === stops[0]
+    ? stops.slice(0, -1)
+    : stops;
+  const assignedVehicle = mission.vehicleId ? vehicles.find(vehicle => vehicle.id === mission.vehicleId) : undefined;
+
+  return {
+    demandeurId: mission.demandeurId,
+    demandeurQuery: mission.employee,
+    type: mission.type,
+    object: mission.object,
+    departure: routeStops[0] ?? mission.departure,
+    destination: routeStops.at(-1) ?? mission.destination,
+    intermediateStops: routeStops.slice(1, -1),
+    roundTrip: Boolean(mission.route.roundTrip),
+    departureDate: mission.departureDate,
+    departureTime: mission.departureTime,
+    returnDate: mission.returnDate,
+    returnTime: mission.returnTime,
+    passengers: mission.passengers,
     notes: '',
-    // Conducteur + véhicule toujours affectés à la création
-    assignedDriverId: '',
-    vehicleCategory: '',
-    assignedVehicleId: '',
-  });
+    assignedDriverId: mission.driverId ?? '',
+    vehicleCategory: assignedVehicle?.category ?? '',
+    assignedVehicleId: mission.vehicleId ?? '',
+  };
+}
+
+export default function NewMissionForm({ onNavigate, onBack, initialMission, onSubmitMission }: Props) {
+  const [form, setForm] = useState<FormState>(() => missionToForm(initialMission));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [draft, setDraft] = useState(false);
@@ -96,10 +116,10 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     }
     setDraft(isDraft);
     setSubmitted(true);
-    if (!isDraft && onSubmitMission) {
+    if (onSubmitMission) {
       const { demandeurId, type, object, departure, destination, intermediateStops, roundTrip, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes } = form;
       const route = makeMissionRoute([departure, ...intermediateStops, destination], roundTrip);
-      onSubmitMission({ demandeurId, type, object, departure, destination, route, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
+      onSubmitMission({ missionId: initialMission?.id, saveAsDraft: isDraft, demandeurId, type, object, departure, destination, route, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
     }
   }
 
@@ -164,8 +184,8 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     <div className="max-w-3xl">
       <div className="bg-white rounded-xl border border-border shadow-sm">
         <div className="px-6 py-5 border-b border-border">
-          <h2 className="text-ink text-lg font-semibold">Nouvelle demande de mission</h2>
-          <p className="text-muted text-sm mt-0.5">Renseignez les informations de votre déplacement professionnel</p>
+          <h2 className="text-ink text-lg font-semibold">{initialMission ? 'Modifier le brouillon' : 'Nouvelle demande de mission'}</h2>
+          <p className="text-muted text-sm mt-0.5">{initialMission ? 'Complétez les informations puis soumettez la mission.' : 'Renseignez les informations de votre déplacement professionnel'}</p>
         </div>
 
         <div className="p-6 space-y-6">

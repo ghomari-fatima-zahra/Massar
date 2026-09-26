@@ -11,8 +11,8 @@ const STAGE_STATUSES: Record<string, Status> = {
 };
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
-  all: 'Toutes', en_attente: 'En attente',
-  en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées',
+  all: 'Toutes', brouillon: 'Brouillons', en_attente: 'En attente',
+  en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées', annulee: 'Annulées',
 };
 
 const STATUS_DOT: Record<string, string> = {
@@ -373,7 +373,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                           onClick={() => onNavigate('mission-detail', selected.id)}
                           className="px-4 py-2 bg-navy text-white text-sm font-semibold rounded-xl hover:bg-navy-dark transition-colors whitespace-nowrap"
                         >
-                          Détails
+                          {selected.status === 'brouillon' ? 'Modifier le brouillon' : 'Détails'}
                         </button>
                         {selected.status === 'en_attente' && selected.driverId && (
                           <button
