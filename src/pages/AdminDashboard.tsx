@@ -11,7 +11,6 @@ import {
   MapPin,
   Plus,
   SquaresFour,
-  TrendUp,
   Truck,
   UsersThree,
   Wrench,
@@ -110,19 +109,15 @@ function MetricCard({
   label,
   value,
   helper,
-  delta,
   icon: Icon,
   tone = 'neutral',
-  featured = false,
   onClick,
 }: {
   label: string;
   value: string;
   helper: string;
-  delta?: string;
   icon: any;
   tone?: 'accent' | 'success' | 'info' | 'neutral';
-  featured?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -131,13 +126,9 @@ function MetricCard({
       title={onClick ? `Filtrer : ${label}` : undefined}
       className={`rounded-2xl border bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)] ${
         onClick ? 'cursor-pointer' : ''
-      } ${
-        featured
-          ? 'border-l-4 border-l-[var(--accent)] border-y-[var(--line)] border-r-[var(--line)]'
-          : 'border-[var(--line)]'
-      }`}
+      } border-[var(--line)]`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-center gap-3">
         <div
           className={`grid h-9 w-9 place-items-center rounded-lg ${
             tone === 'accent'
@@ -151,16 +142,10 @@ function MetricCard({
         >
           <Icon size={18} weight="regular" />
         </div>
-        {delta && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--success-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--success)]">
-            <TrendUp size={13} weight="bold" />
-            {delta}
-          </span>
-        )}
+        <p className="text-xl font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">
+          {label}
+        </p>
       </div>
-      <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--ink-muted)]">
-        {label}
-      </p>
       <div className="mt-1 flex items-baseline gap-2">
         <p className="tabular-nums text-[28px] font-semibold leading-none tracking-[-0.03em] text-[var(--ink)]">
           {value}
@@ -280,6 +265,11 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
     <div className="mx-auto max-w-[1440px] space-y-8">
       <section className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
         <div>
+          <h1 className="mt-0 text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--ink)]">
+            {greeting}, Nadia
+          </h1>
+        </div>
+        <div className="flex flex-col items-start gap-3 lg:items-end">
           <div className="flex items-center gap-2 text-xs font-medium text-[var(--ink-muted)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
             {today.toLocaleDateString('fr-DZ', {
@@ -289,16 +279,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
               year: 'numeric',
             })}
           </div>
-          <h1 className="mt-3 text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--ink)]">
-            {greeting}, Nadia
-          </h1>
-          <p className="mt-2 max-w-[62ch] text-sm leading-6 text-[var(--ink-muted)]">
-            {activeMissions.length > 0
-              ? `Voici ce qui demande votre attention aujourd’hui. ${activeMissions.length} mission(s) en déplacement ou affectée(s).`
-              : 'Tout est à jour. Bonne journée !'}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
           <label className="sr-only" htmlFor="period">
             Période du tableau de bord
           </label>
@@ -328,6 +309,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
             <Plus size={16} weight="bold" />
             Nouvelle mission
           </button>
+          </div>
         </div>
       </section>
 
@@ -336,10 +318,8 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
           label="Missions totales"
           value={String(totalMissions)}
           helper="enregistrées"
-          delta="+2"
           icon={ListChecks}
           tone="accent"
-          featured
           onClick={() => onNavigate('fleet-missions', 'all')}
         />
         <MetricCard
@@ -376,7 +356,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
                 <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent-strong)]">
                   <ChartBar size={15} />
                 </span>
-                <h2 className="text-sm font-semibold text-[var(--ink)]">Missions par mois</h2>
+                <h2 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">Missions par mois</h2>
               </div>
               <p className="mt-2 text-xs text-[var(--ink-muted)]">
                 Volume de missions enregistrées sur {period.toLowerCase()}.
@@ -389,12 +369,12 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
                 <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 11, fill: 'var(--ink-muted)' }}
+                  tick={{ fontSize: 14, fill: 'var(--ink-muted)' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: 'var(--ink-muted)' }}
+                  tick={{ fontSize: 14, fill: 'var(--ink-muted)' }}
                   axisLine={false}
                   tickLine={false}
                   allowDecimals={false}
@@ -427,13 +407,13 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
         <article className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-[var(--ink)]">Missions récentes</h2>
-              <p className="mt-1 text-xs text-[var(--ink-muted)]">Tous statuts confondus.</p>
+              <h2 className="text-lg font-semibold text-[var(--ink)]">Missions récentes</h2>
+              <p className="mt-1 text-sm text-[var(--ink-muted)]">Tous statuts confondus.</p>
             </div>
             <button
               type="button"
               onClick={() => onNavigate('fleet-missions')}
-              className="shrink-0 text-[11px] font-semibold text-[var(--accent-strong)] hover:underline"
+              className="shrink-0 text-sm font-semibold text-[var(--accent-strong)] hover:underline"
             >
               Voir tout
             </button>
@@ -443,8 +423,8 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
               <div key={mission.id} className="flex items-start gap-3 border-t border-[var(--line)] pt-3">
                 <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-[var(--ink)]">{mission.object}</p>
-                  <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
+                  <p className="text-sm font-medium leading-5 text-[var(--ink)]">{mission.object}</p>
+                  <p className="mt-1 text-sm text-[var(--ink-muted)]">
                     {new Date(mission.departureDate).toLocaleDateString('fr-DZ')} · {mission.departureTime}
                   </p>
                 </div>
@@ -460,10 +440,10 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--success-soft)] text-[var(--success)]">
+                <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--surface-muted)] text-[var(--ink-muted)]">
                   <Truck size={15} />
                 </span>
-                <h2 className="text-sm font-semibold text-[var(--ink)]">État de la flotte</h2>
+                <h2 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">État de la flotte</h2>
               </div>
               <p className="mt-2 text-xs text-[var(--ink-muted)]">
                 Disponibilité et affectation des véhicules.
@@ -538,16 +518,16 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
                 <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--surface-muted)] text-[var(--ink-soft)]">
                   <SquaresFour size={15} />
                 </span>
-                <h2 className="text-sm font-semibold text-[var(--ink)]">Activité récente</h2>
+                <h2 className="text-lg font-semibold text-[var(--ink)]">Activité récente</h2>
               </div>
-              <p className="mt-2 text-xs text-[var(--ink-muted)]">
+              <p className="mt-2 text-sm text-[var(--ink-muted)]">
                 Les dernières mises à jour de votre espace.
               </p>
             </div>
             <button
               type="button"
               onClick={() => onNavigate('fleet-missions')}
-              className="text-xs font-semibold text-[var(--accent-strong)] hover:underline"
+              className="text-sm font-semibold text-[var(--accent-strong)] hover:underline"
             >
               Voir tout
             </button>
@@ -561,8 +541,8 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
                     <Icon size={16} weight="regular" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium leading-5 text-[var(--ink)]">{item.title}</p>
-                    <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">{item.meta}</p>
+                    <p className="text-sm font-medium leading-5 text-[var(--ink)]">{item.title}</p>
+                    <p className="mt-0.5 text-sm text-[var(--ink-muted)]">{item.meta}</p>
                   </div>
                 </div>
               );

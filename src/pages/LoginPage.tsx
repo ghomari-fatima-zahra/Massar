@@ -78,45 +78,6 @@ export default function LoginPage({ onLogin }: Props) {
 
   return (
     <main className="login-shell">
-      <section className="login-visual" aria-label="Présentation de Massar">
-        <div className="login-visual-grid" />
-        <div className="login-orb login-orb-one" />
-        <div className="login-orb login-orb-two" />
-
-        <header className="login-brand-row">
-          <div className="login-brand-lockup">
-            <div className="login-supplied-logo" aria-hidden="true">
-              <img src="/logo-size-variations.png" alt="" />
-            </div>
-            <div>
-              <p className="login-brand-name">Massar</p>
-            </div>
-          </div>
-          <div className="login-org-pill">
-            <span className="login-org-dot" />
-            DG
-          </div>
-        </header>
-
-        <div className="login-visual-content">
-          <p className="login-kicker"><span /> Plateforme opérationnelle</p>
-          <h1>
-            Chaque mission,
-            <br />
-            <em>sur la bonne voie.</em>
-          </h1>
-          <p className="login-visual-description">
-            Pilotez les déplacements professionnels, les véhicules et les équipes depuis un espace unique.
-          </p>
-
-        </div>
-
-        <footer className="login-visual-footer">
-          <span>Une seule route. Des missions mieux orchestrées.</span>
-          <span className="login-footer-status"><i /> Système opérationnel</span>
-        </footer>
-      </section>
-
       <section className="login-panel">
         <div className="login-panel-inner">
           <div className="login-mobile-brand">
@@ -126,17 +87,6 @@ export default function LoginPage({ onLogin }: Props) {
             <div>
               <p className="login-brand-name">Massar</p>
             </div>
-          </div>
-
-          <div className="login-institution-lockup">
-            <img src="/logo-algerie-telecom.svg" alt="Algérie Télécom" />
-            <span>ESPACE INTERNE</span>
-          </div>
-
-          <div className="login-form-header">
-            <span className="login-access-badge"><i /> Accès sécurisé</span>
-            <h2>Bienvenue sur<br /><strong>Massar</strong></h2>
-            <p>Connectez-vous pour accéder à votre espace de gestion.</p>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
@@ -159,10 +109,7 @@ export default function LoginPage({ onLogin }: Props) {
             </div>
 
             <div className="login-field">
-              <div className="login-label-row">
-                <label htmlFor="login-password">Mot de passe</label>
-                <button type="button" onClick={handleForgotPassword}>Mot de passe oublié ?</button>
-              </div>
+              <label htmlFor="login-password">Mot de passe</label>
               <div className="login-input-wrap">
                 <LockIcon />
                 <input
@@ -177,6 +124,9 @@ export default function LoginPage({ onLogin }: Props) {
                   autoComplete="current-password"
                 />
               </div>
+              <button className="login-forgot" type="button" onClick={handleForgotPassword}>
+                Mot de passe oublié ?
+              </button>
             </div>
 
             <div className="login-options">

@@ -509,8 +509,8 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={fuelCurve} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                     <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="m" tick={{ fontSize: 11, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="m" tick={{ fontSize: 14, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 14, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<MiniTooltip suffix="DA" />} cursor={{ fill: 'var(--surface-muted)' }} />
                     <Bar dataKey="da" fill="var(--accent)" radius={[5, 5, 0, 0]} />
                   </BarChart>
@@ -583,8 +583,8 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={kmCurve} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                     <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="m" tick={{ fontSize: 10, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} interval={1} />
-                    <YAxis tick={{ fontSize: 11, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="m" tick={{ fontSize: 14, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} interval={1} />
+                    <YAxis tick={{ fontSize: 14, fill: 'var(--ink-muted)' }} axisLine={false} tickLine={false} />
                     <Tooltip content={<MiniTooltip suffix="km" />} cursor={{ stroke: 'var(--line-strong)' }} />
                     <Area type="monotone" dataKey="km" stroke="var(--navy)" strokeWidth={2} fill="var(--info-soft)" />
                   </AreaChart>

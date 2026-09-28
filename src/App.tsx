@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { vehicles, drivers, missions, users } from './data/mock';
 import type { Driver, MissionRoute, Status, AppUser } from './data/mock';
-import { Bus, Car } from '@phosphor-icons/react';
+import { Bus, Car, PencilSimple, Trash, UserPlus, X } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import VehicleTelemetryModal from './components/VehicleTelemetryModal';
@@ -227,7 +227,7 @@ export default function App() {
           />
         );
       case 'admin-vehicles':
-        return <AdminVehiclesPage assignments={assignments} onNavigate={navigate} />;
+        return <AdminVehiclesPage assignments={assignments} employees={employeeList} onNavigate={navigate} />;
       case 'admin-structures':
         return <AdminStructuresPage />;
       case 'notifications':
@@ -286,6 +286,7 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
   const [driverList, setDriverList] = useState<Driver[]>(drivers);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Driver | null>(null);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
     name: '',
@@ -356,6 +357,12 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
     };
     setDriverList(list => [...list, next]);
     setShowModal(false);
+  }
+
+  function handleDelete() {
+    if (!pendingDelete) return;
+    setDriverList(list => list.filter(driver => driver.id !== pendingDelete.id));
+    setPendingDelete(null);
   }
 
   const inputClass = (field: string) =>
@@ -445,11 +452,18 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
                     <button
                       onClick={() => openEdit(d)}
                       title="Modifier le conducteur"
-                      className="p-1.5 rounded-lg text-muted hover:bg-slate-100 hover:text-navy transition-colors"
+                      className="rounded-lg p-2 text-muted transition-colors hover:bg-slate-100 hover:text-navy"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                      </svg>
+                      <span className="sr-only">Modifier</span>
+                      <PencilSimple size={20} weight="regular" aria-hidden="true" />
+                    </button>
+                    <button
+                      onClick={() => setPendingDelete(d)}
+                      title="Supprimer le conducteur"
+                      className="rounded-lg p-2 text-muted transition-colors hover:bg-red-50 hover:text-danger"
+                    >
+                      <span className="sr-only">Supprimer</span>
+                      <Trash size={20} weight="regular" aria-hidden="true" />
                     </button>
                   </td>
                 </tr>
@@ -538,13 +552,49 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
           </div>
         </div>
       )}
+
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={e => { if (e.target === e.currentTarget) setPendingDelete(null); }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="mb-2 text-lg font-bold text-ink">Supprimer le conducteur ?</h3>
+            <p className="mb-6 text-sm text-muted">
+              <strong>{pendingDelete.name}</strong> sera retiré de la liste des conducteurs.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setPendingDelete(null)} className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-slate-50">
+                Annuler
+              </button>
+              <button onClick={handleDelete} className="rounded-lg bg-danger px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigate: (page: string) => void; assignments: Record<string, { vehicleId: string; driverId: string }> }) {
+function AdminVehiclesPage({
+  onNavigate: _onNavigate,
+  assignments,
+  employees,
+}: {
+  onNavigate: (page: string) => void;
+  assignments: Record<string, { vehicleId: string; driverId: string }>;
+  employees: AppUser[];
+}) {
   const [vehicleList, setVehicleList] = useState(vehicles);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [assignmentVehicleId, setAssignmentVehicleId] = useState<string | null>(null);
+  const [assignmentForm, setAssignmentForm] = useState({
+    employeeId: '',
+    assignmentDate: new Date().toISOString().slice(0, 10),
+  });
+  const [assignmentErrors, setAssignmentErrors] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
@@ -600,6 +650,38 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
     setVehicleList(list => list.map(v => v.id === id ? { ...v, status } : v));
   }
 
+  function openAssignment(id: string) {
+    const vehicle = vehicleList.find(v => v.id === id);
+    if (!vehicle || vehicle.status !== 'disponible') return;
+    setAssignmentVehicleId(id);
+    setAssignmentForm({
+      employeeId: '',
+      assignmentDate: new Date().toISOString().slice(0, 10),
+    });
+    setAssignmentErrors({});
+  }
+
+  function closeAssignment() {
+    setAssignmentVehicleId(null);
+    setAssignmentErrors({});
+  }
+
+  function handleAssignment() {
+    const errors: Record<string, string> = {};
+    if (!assignmentForm.employeeId) errors.employeeId = 'Sélectionnez un employé.';
+    if (!assignmentForm.assignmentDate) errors.assignmentDate = "La date d'affectation est requise.";
+    if (Object.keys(errors).length) {
+      setAssignmentErrors(errors);
+      return;
+    }
+
+    const vehicle = vehicleList.find(v => v.id === assignmentVehicleId);
+    if (!vehicle || vehicle.status !== 'disponible') return;
+
+    setVehicleList(list => list.map(v => v.id === vehicle.id ? { ...v, status: 'indisponible' } : v));
+    closeAssignment();
+  }
+
   function handleDeleteVehicle(id: string) {
     setVehicleList(list => list.filter(v => v.id !== id));
     setDetailId(null);
@@ -630,6 +712,8 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
   }
 
   const detailVehicle = vehicleList.find(v => v.id === detailId) ?? null;
+  const assignmentVehicle = vehicleList.find(v => v.id === assignmentVehicleId) ?? null;
+  const activeEmployees = employees.filter(employee => employee.status === 'actif');
   const vehicleTypes = [...new Set(vehicleList.map(v => v.type))];
   const vQuery = search.trim().toLowerCase();
   const filteredVehicles = vehicleList.filter(v =>
@@ -700,13 +784,12 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
             <tr className="border-b border-border bg-slate-50/80">
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Véhicule</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">Immatriculation</th>
-              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">GPS</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Type</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Capacité</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Dernière inspection</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Prochaine inspection</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Statut</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-4 py-3 text-right text-muted font-medium text-xs uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
@@ -724,7 +807,6 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                   </div>
                 </td>
                 <td className="px-4 py-3.5 font-mono text-sm text-muted whitespace-nowrap">{v.registration}</td>
-                <td className="px-4 py-3.5 font-mono text-xs text-navy whitespace-nowrap">{v.gps}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-ink">{v.type}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-ink">{v.capacity} places</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-muted">{new Date(v.lastInspection).toLocaleDateString('fr-DZ')}</td>
@@ -735,13 +817,106 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                   </span>
                 </td>
                 <td className="px-4 py-3.5 text-right">
-                  <button onClick={(e) => { e.stopPropagation(); setDetailId(v.id); }} className="text-navy text-xs font-medium hover:underline whitespace-nowrap">Détails</button>
+                  <div className="flex items-center justify-end gap-2">
+                    {v.status === 'disponible' && (
+                      <button
+                        type="button"
+                        aria-label="Affecter le véhicule"
+                        title="Affecter le véhicule"
+                        onClick={(e) => { e.stopPropagation(); openAssignment(v.id); }}
+                        className="grid h-9 w-9 place-items-center rounded-lg bg-navy text-white transition-colors hover:bg-navy-dark"
+                      >
+                        <UserPlus size={17} weight="bold" />
+                      </button>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); setDetailId(v.id); }} className="text-navy text-xs font-medium hover:underline whitespace-nowrap">Détails</button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Vehicle assignment modal */}
+      {assignmentVehicle && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={e => { if (e.target === e.currentTarget) closeAssignment(); }}
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="vehicle-assignment-title">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-navy">Nouvelle affectation</p>
+                <h3 id="vehicle-assignment-title" className="text-ink font-bold">Affecter un véhicule</h3>
+                <p className="mt-1 text-muted text-sm">
+                  {assignmentVehicle.brand} {assignmentVehicle.model} · {assignmentVehicle.registration}
+                </p>
+              </div>
+              <button type="button" onClick={closeAssignment} aria-label="Fermer" className="rounded-lg p-1.5 text-muted transition-colors hover:bg-slate-100 hover:text-ink">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="vehicle-assignment-employee" className="mb-1.5 block text-sm font-medium text-ink">
+                  Employé bénéficiaire <span className="text-danger">*</span>
+                </label>
+                <select
+                  id="vehicle-assignment-employee"
+                  value={assignmentForm.employeeId}
+                  onChange={e => {
+                    setAssignmentForm(form => ({ ...form, employeeId: e.target.value }));
+                    setAssignmentErrors(errors => ({ ...errors, employeeId: '' }));
+                  }}
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 ${assignmentErrors.employeeId ? 'border-danger focus:ring-danger/20' : 'border-border focus:border-navy focus:ring-navy/15'}`}
+                >
+                  <option value="">Sélectionner un employé</option>
+                  {activeEmployees.map(employee => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name} · {employee.structure}
+                    </option>
+                  ))}
+                </select>
+                {assignmentErrors.employeeId && <p className="mt-1.5 text-xs text-danger">{assignmentErrors.employeeId}</p>}
+                {!activeEmployees.length && <p className="mt-1.5 text-xs text-danger">Aucun employé actif n'est disponible.</p>}
+              </div>
+
+              <div>
+                <label htmlFor="vehicle-assignment-date" className="mb-1.5 block text-sm font-medium text-ink">
+                  Date d'affectation <span className="text-danger">*</span>
+                </label>
+                <input
+                  id="vehicle-assignment-date"
+                  type="date"
+                  value={assignmentForm.assignmentDate}
+                  onChange={e => {
+                    setAssignmentForm(form => ({ ...form, assignmentDate: e.target.value }));
+                    setAssignmentErrors(errors => ({ ...errors, assignmentDate: '' }));
+                  }}
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 ${assignmentErrors.assignmentDate ? 'border-danger focus:ring-danger/20' : 'border-border focus:border-navy focus:ring-navy/15'}`}
+                />
+                {assignmentErrors.assignmentDate && <p className="mt-1.5 text-xs text-danger">{assignmentErrors.assignmentDate}</p>}
+              </div>
+
+              <div className="rounded-lg border border-warning/20 bg-warning-bg px-4 py-3 text-sm text-warning">
+                Après confirmation, le véhicule passera automatiquement à l'état « Indisponible ».
+              </div>
+            </div>
+
+            <div className="mt-7 flex justify-end gap-3">
+              <button type="button" onClick={closeAssignment} className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-slate-50">
+                Annuler
+              </button>
+              <button type="button" onClick={handleAssignment} disabled={!activeEmployees.length} className="inline-flex items-center gap-2 rounded-lg bg-navy px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-navy-dark disabled:cursor-not-allowed disabled:opacity-50">
+                <UserPlus size={17} weight="bold" />
+                Confirmer l'affectation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Vehicle form modal (create / edit) */}
       {showForm && (

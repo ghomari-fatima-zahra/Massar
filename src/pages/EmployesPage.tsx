@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Trash } from '@phosphor-icons/react';
 import type { AppUser } from '../data/mock';
 
 interface Props {
@@ -77,10 +78,10 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
         <table className="w-full text-sm min-w-[820px]">
           <thead>
             <tr className="border-b border-border bg-slate-50/80">
-              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Employé</th>
-              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">Matricule</th>
-              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Structure</th>
-              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Statut</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-sm uppercase tracking-wider">Employé</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-sm uppercase tracking-wider whitespace-nowrap">Matricule</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-sm uppercase tracking-wider">Structure</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-sm uppercase tracking-wider">Statut</th>
               <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
@@ -93,15 +94,15 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
                       {e.name.split(' ').map(w => w[0]).slice(0, 2).join('')}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-ink font-medium truncate">{e.name}</p>
-                      <p className="text-muted text-xs truncate">{e.email}</p>
+                      <p className="text-ink text-base font-medium truncate">{e.name}</p>
+                      <p className="text-muted text-sm truncate">{e.email}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3.5 font-mono text-xs text-muted whitespace-nowrap">{e.matricule}</td>
-                <td className="px-4 py-3.5 text-ink text-sm">{e.structure}</td>
+                <td className="px-4 py-3.5 font-mono text-sm text-muted whitespace-nowrap">{e.matricule}</td>
+                <td className="px-4 py-3.5 text-ink text-base">{e.structure}</td>
                 <td className="px-4 py-3.5">
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${e.status === 'actif' ? 'bg-success-bg text-success' : 'bg-slate-100 text-muted'}`}>
+                  <span className={`text-sm font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${e.status === 'actif' ? 'bg-success-bg text-success' : 'bg-slate-100 text-muted'}`}>
                     {e.status === 'actif' ? 'Actif' : 'Inactif'}
                   </span>
                 </td>
@@ -109,11 +110,10 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
                   <button
                     onClick={() => setPendingDelete(e)}
                     title="Supprimer l'employé"
-                    className="p-1.5 rounded-lg text-muted hover:bg-danger-bg hover:text-danger transition-colors"
+                    className="rounded-lg p-2 text-muted transition-colors hover:bg-danger-bg hover:text-danger"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
+                    <span className="sr-only">Supprimer</span>
+                    <Trash size={20} weight="regular" aria-hidden="true" />
                   </button>
                 </td>
               </tr>

@@ -49,7 +49,6 @@ const navItems = [
   { id: 'admin-drivers', label: 'Conducteurs', icon: UsersThree },
   { id: 'employes', label: 'Employés', icon: IdentificationCard },
   { id: 'admin-vehicles', label: 'Véhicules', icon: Truck },
-  { id: 'notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' as const },
 ];
 
 const toolItems = [
@@ -349,14 +348,6 @@ export default function Layout({
                 >
                   <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--navy)] text-[11px] font-bold text-white">
                     NF
-                  </span>
-                  <span className="hidden text-left lg:block">
-                    <span className="block text-xs font-semibold text-[var(--ink)]">
-                      Nadia Ferdi
-                    </span>
-                    <span className="mt-0.5 block text-[10px] text-[var(--ink-muted)]">
-                      Administrateur
-                    </span>
                   </span>
                 </button>
                 {profileOpen && (
