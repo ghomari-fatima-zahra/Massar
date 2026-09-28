@@ -86,6 +86,7 @@ export default function LoginPage({ onLogin }: Props) {
             </div>
             <div>
               <p className="login-brand-name">Massar</p>
+              <p className="login-tagline">Planifiez vos missions, affectez véhicules et conducteurs, suivez chaque déplacement en temps réel.</p>
             </div>
           </div>
 
@@ -166,12 +167,12 @@ export default function LoginPage({ onLogin }: Props) {
             Besoin d'aide ? <button type="button">Contacter le support informatique</button>
           </p>
 
-          <footer className="login-panel-footer">
-            <span>© 2026 Algérie Télécom · DG</span>
-            <span>Version 1.0.0</span>
-          </footer>
         </div>
       </section>
+      <footer className="login-panel-footer">
+        <span>© 2026 Massar Fleet. Tous droits réservés.</span>
+        <span>Version 1.0.0</span>
+      </footer>
     </main>
   );
 }

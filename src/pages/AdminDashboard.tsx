@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Bus,
@@ -26,7 +26,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { drivers, missions, vehicles } from '../data/mock';
+import { currentUsers, drivers, missions, vehicles } from '../data/mock';
 import type { Status } from '../data/mock';
 
 interface Props {
@@ -40,7 +40,6 @@ const STATUS_TONE: Record<Status, string> = {
   brouillon: 'neutral',
   en_attente: 'warning',
   validee: 'success',
-  rejetee: 'neutral',
   affectee: 'info',
   confirmee: 'info',
   en_cours: 'accent',
@@ -50,9 +49,8 @@ const STATUS_TONE: Record<Status, string> = {
 
 const STATUS_LABELS: Record<Status, string> = {
   brouillon: 'Brouillon',
-  en_attente: 'En attente',
+  en_attente: 'Programmée',
   validee: 'Validée',
-  rejetee: 'Rejetée',
   affectee: 'Affectée',
   confirmee: 'Confirmée',
   en_cours: 'En cours',
@@ -217,11 +215,16 @@ function CustomTooltip({ active, payload, label }: any) {
 
 export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   const [period, setPeriod] = useState('Cette année');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
-  const totalMissions = missions.length;
   const effMissions = missions.map((m) => (statusOverrides[m.id] ? { ...m, status: statusOverrides[m.id] } : m));
-  const activeMissions = effMissions.filter((m) => m.status === 'en_cours');
+  const filteredMissions = effMissions.filter((mission) => (!fromDate || mission.departureDate >= fromDate) && (!toDate || mission.departureDate <= toDate));
+  const totalMissions = filteredMissions.length;
+  const activeMissions = filteredMissions.filter((m) => m.status === 'en_cours');
   const availableVehicles = vehicles.filter((v) => v.status === 'disponible');
   const maintenanceVehicles = vehicles.filter((v) => v.status === 'maintenance');
   const assignedVehicles = vehicles.filter(
@@ -234,18 +237,18 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   const currentMonth = new Date().getMonth();
   const missionData = MONTH_LABELS.map((month, idx) => ({
     month,
-    missions: effMissions.filter((m) => {
+    missions: filteredMissions.filter((m) => {
       const d = new Date(m.departureDate);
       return !Number.isNaN(d.getTime()) && d.getMonth() === idx;
     }).length,
     current: idx === currentMonth,
   }));
 
-  const recentMissions = [...effMissions]
+  const recentMissions = [...filteredMissions]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
     .slice(0, 5);
 
-  const recentActivity = [...effMissions].slice(0, 4).map((m) => ({
+  const recentActivity = [...filteredMissions].slice(0, 4).map((m) => ({
     title: `${m.object} — ${STATUS_LABELS[m.status]}`,
     meta: `${m.departure} → ${m.destination} · ${new Date(m.departureDate).toLocaleDateString('fr-DZ')}`,
     icon: m.status === 'terminee' ? Check : m.status === 'en_attente' ? Clock : ListChecks,
@@ -255,10 +258,55 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   const today = new Date();
   const greeting =
     today.getHours() < 12 ? 'Bonjour' : today.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
+  const admin = currentUsers.admin;
+
+  const averageCapacity = (category: 'car' | 'bus') => {
+    const categoryVehicles = vehicles.filter(vehicle => vehicle.category === category);
+    if (!categoryVehicles.length) return '0';
+    return (categoryVehicles.reduce((sum, vehicle) => sum + vehicle.capacity, 0) / categoryVehicles.length).toLocaleString('fr-DZ', { maximumFractionDigits: 1 });
+  };
 
   function showToast(message: string) {
     setToast(message);
     window.setTimeout(() => setToast(null), 4200);
+  }
+
+  function exportCsv() {
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const rows = filteredMissions.map(mission => [mission.id, mission.object, mission.employee, mission.departure, mission.destination, mission.departureDate, STATUS_LABELS[mission.status]]);
+    const content = [['ID', 'Objet', 'Demandeur', 'Départ', 'Destination', 'Date', 'Statut'], ...rows].map(row => row.map(escape).join(',')).join('\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8;' }));
+    link.download = 'rapport-missions-massar.csv';
+    link.click();
+    setExportOpen(false);
+    showToast('Le rapport CSV a été téléchargé.');
+  }
+
+  function exportChartPng() {
+    const svg = chartRef.current?.querySelector('svg');
+    if (!svg) return;
+    const svgText = new XMLSerializer().serializeToString(svg).replaceAll('var(--navy)', '#075985').replaceAll('var(--accent)', '#f97316').replaceAll('var(--line)', '#e2e8f0').replaceAll('var(--ink-muted)', '#64748b');
+    const canvas = document.createElement('canvas');
+    const width = svg.clientWidth || 900;
+    const height = svg.clientHeight || 300;
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    const image = new Image();
+    image.onload = () => {
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const link = document.createElement('a');
+      link.download = 'missions-par-mois.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      showToast('Le graphique PNG a été téléchargé.');
+    };
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+    setExportOpen(false);
   }
 
   return (
@@ -266,7 +314,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
       <section className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
         <div>
           <h1 className="mt-0 text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--ink)]">
-            {greeting}, Nadia
+            {greeting}, {admin.name}
           </h1>
         </div>
         <div className="flex flex-col items-start gap-3 lg:items-end">
@@ -293,14 +341,21 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
             <option>Ce trimestre</option>
             <option>Ce mois</option>
           </select>
-          <button
-            type="button"
-            onClick={() => showToast('Le rapport est prêt à être exporté.')}
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3.5 text-xs font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          >
-            <FileArrowDown size={16} />
-            Exporter
-          </button>
+          <div className="relative">
+            <button type="button" onClick={() => setExportOpen(open => !open)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3.5 text-xs font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2">
+              <FileArrowDown size={16} /> Exporter
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-12 z-20 w-60 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 shadow-[var(--shadow-lg)]">
+                <button type="button" onClick={exportCsv} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-muted)]"><FileArrowDown size={16} /> Exporter les missions CSV</button>
+                <button type="button" onClick={exportChartPng} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-[var(--ink-soft)] hover:bg-[var(--surface-muted)]"><ChartBar size={16} /> Exporter le graphique PNG</button>
+              </div>
+            )}
+          </div>
+          <label className="sr-only" htmlFor="dashboard-from">Date de début</label>
+          <input id="dashboard-from" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} className="h-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink-soft)]" />
+          <label className="sr-only" htmlFor="dashboard-to">Date de fin</label>
+          <input id="dashboard-to" type="date" value={toDate} onChange={event => setToDate(event.target.value)} className="h-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink-soft)]" />
           <button
             type="button"
             onClick={() => onNavigate('new-mission')}
@@ -348,8 +403,8 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
-        <article className="min-w-0 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
+      <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.65fr)]">
+        <article className="order-2 min-w-0 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
             <div>
               <div className="flex items-center gap-2">
@@ -363,7 +418,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
               </p>
             </div>
           </div>
-          <div className="mt-6 h-[270px] w-full">
+          <div ref={chartRef} className="mt-6 h-[270px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={missionData} barSize={22} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
@@ -404,7 +459,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
+        <article className="order-1 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-[var(--ink)]">Missions récentes</h2>
@@ -433,6 +488,17 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
             ))}
           </div>
         </article>
+      </section>
+
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
+        <div>
+          <h2 className="text-xl font-semibold text-[var(--ink)]">Capacité moyenne de la flotte</h2>
+          <p className="mt-1 text-base text-[var(--ink-muted)]">Nombre moyen de places par catégorie de véhicule.</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="rounded-xl bg-[var(--surface-muted)] px-4 py-3"><p className="text-sm font-medium text-[var(--ink-muted)]">Voitures</p><p className="mt-1 text-2xl font-semibold text-[var(--ink)]">{averageCapacity('car')} <span className="text-sm font-medium">places</span></p></div>
+          <div className="rounded-xl bg-[var(--surface-muted)] px-4 py-3"><p className="text-sm font-medium text-[var(--ink-muted)]">Bus</p><p className="mt-1 text-2xl font-semibold text-[var(--ink)]">{averageCapacity('bus')} <span className="text-sm font-medium">places</span></p></div>
+        </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">

@@ -41,7 +41,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
         <KPICard
-          label="Missions en attente"
+          label="Missions programmées"
           value={stats.pending}
           icon={<ClockIcon />}
           iconBg="bg-[#FEF3C7]"

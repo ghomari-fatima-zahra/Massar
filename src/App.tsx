@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { vehicles, drivers, missions, users } from './data/mock';
 import type { Driver, MissionRoute, Status, AppUser } from './data/mock';
-import { Bus, Car, PencilSimple, Trash, UserPlus, X } from '@phosphor-icons/react';
+import { Bus, Car, FileArrowDown, PencilSimple, Trash, UserPlus, X } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import VehicleTelemetryModal from './components/VehicleTelemetryModal';
@@ -13,6 +13,8 @@ import NotificationsPage from './pages/NotificationsPage';
 import ParametresPage from './pages/ParametresPage';
 import AidePage from './pages/AidePage';
 import EmployesPage from './pages/EmployesPage';
+import NotFoundPage from './components/NotFoundPage';
+import PageErrorBoundary from './components/PageErrorBoundary';
 
 type Page =
   | 'admin-dashboard' | 'fleet-missions' | 'new-mission' | 'mission-detail'
@@ -52,7 +54,7 @@ export default function App() {
   const [history, setHistory] = useState<Page[]>([]);
   // Admin assignments at creation: mission starts with driver+vehicle assigned
   const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
-  // Driver-pressed starts: mission status switches En attente → En cours
+  // Driver-pressed starts: mission status switches Programmée → En cours
   const [statusOverrides, setStatusOverrides] = useState<Record<string, Status>>({});
   // Company employees (demandeurs) — admin managed
   const [employeeList, setEmployeeList] = useState<AppUser[]>(users);
@@ -119,7 +121,6 @@ export default function App() {
         vehicleId: data.assignedVehicleId || undefined,
         driverId: data.assignedDriverId || undefined,
         validatedBy: undefined,
-        rejectionReason: undefined,
       };
       setAssignments(current => {
         const next = { ...current };
@@ -211,8 +212,13 @@ export default function App() {
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
         return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} employees={employeeList} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
-      case 'mission-detail':
-        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
+      case 'mission-detail': {
+        const mission = selectedMissionId ? missions.find(item => item.id === selectedMissionId) : null;
+        if (!mission) {
+          return <NotFoundPage onBack={() => navigate('admin-dashboard')} title="Mission introuvable" description="Cette mission n’existe pas ou n’est plus disponible." />;
+        }
+        return <MissionDetail missionId={mission.id} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
+      }
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
       case 'employes':
@@ -237,7 +243,7 @@ export default function App() {
       case 'aide':
         return <AidePage />;
       default:
-        return <AdminDashboard statusOverrides={statusOverrides} onNavigate={navigate} />;
+        return <NotFoundPage onBack={() => navigate('admin-dashboard')} />;
     }
   }
 
@@ -253,7 +259,9 @@ export default function App() {
       pageTitle={PAGE_TITLES[currentPage] || 'Massar Fleet'}
       breadcrumb={PAGE_BREADCRUMBS[currentPage]}
     >
-      {renderPage()}
+      <PageErrorBoundary resetKey={currentPage} onReset={() => setCurrentPage('admin-dashboard')}>
+        {renderPage()}
+      </PageErrorBoundary>
     </Layout>
   );
 }
@@ -282,12 +290,25 @@ function nextMatricule(list: Driver[]) {
   return `DRV-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0')}`;
 }
 
+function downloadCsv(filename: string, headers: string[], rows: string[][]) {
+  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const content = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n');
+  const blob = new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function AdminDriversPage({ assignments }: { assignments: Record<string, { vehicleId: string; driverId: string }> }) {
   const [driverList, setDriverList] = useState<Driver[]>(drivers);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Driver | null>(null);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | Driver['status']>('all');
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -371,10 +392,34 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
     }`;
 
   const driverQuery = search.trim().toLowerCase();
+  const getEffectiveStatus = (driver: Driver): Driver['status'] => {
+    const sessionDriverIds = Object.values(assignments).map(a => a.driverId);
+    const missionDriverIds = missions
+      .filter(m => ['en_attente', 'en_cours'].includes(m.status) && m.driverId)
+      .map(m => m.driverId as string);
+    return [...sessionDriverIds, ...missionDriverIds].includes(driver.id) && driver.status === 'disponible'
+      ? 'en_mission'
+      : driver.status;
+  };
   const filteredDrivers = driverList.filter(d =>
-    !driverQuery ||
-    `${d.name} ${d.matricule} ${d.phone}`.toLowerCase().includes(driverQuery),
+    (statusFilter === 'all' || getEffectiveStatus(d) === statusFilter) &&
+    (!driverQuery || `${d.name} ${d.matricule} ${d.phone}`.toLowerCase().includes(driverQuery)),
   );
+
+  function exportDrivers() {
+    downloadCsv(
+      'conducteurs-massar.csv',
+      ['Nom', 'Matricule', 'Téléphone', 'Catégories de permis', 'Expiration du permis', 'Statut'],
+      filteredDrivers.map(driver => [
+        driver.name,
+        driver.matricule,
+        driver.phone,
+        driver.licenceCategories.join(' + '),
+        driver.licenceExpiry,
+        DRIVER_STATUSES.find(status => status.id === getEffectiveStatus(driver))?.label ?? 'Indisponible',
+      ]),
+    );
+  }
 
   return (
     <div className="w-full space-y-5">
@@ -385,7 +430,8 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
           Nouveau conducteur
         </button>
       </div>
-      <div className="relative max-w-md">
+      <div className="flex flex-wrap items-center gap-3">
+      <div className="relative min-w-[240px] max-w-md flex-1">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/>
         </svg>
@@ -396,6 +442,24 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
+      </div>
+      <select
+        aria-label="Filtrer les conducteurs par statut"
+        value={statusFilter}
+        onChange={event => setStatusFilter(event.target.value as typeof statusFilter)}
+        className="h-11 rounded-xl border border-border bg-white px-3 text-sm text-ink shadow-sm focus:border-navy focus:outline-none"
+      >
+        <option value="all">Tous les statuts</option>
+        {DRIVER_STATUSES.map(status => <option key={status.id} value={status.id}>{status.label}</option>)}
+      </select>
+      <button
+        type="button"
+        onClick={exportDrivers}
+        className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-3.5 text-sm font-semibold text-ink transition-colors hover:bg-slate-50"
+      >
+        <FileArrowDown size={18} />
+        Exporter CSV
+      </button>
       </div>
       <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
         <table className="w-full text-sm min-w-[780px]">
@@ -414,13 +478,8 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
               const expiry = new Date(d.licenceExpiry);
               const daysLeft = Math.floor((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
               const warning = daysLeft < 90;
-              // Assigned to a mission (session or en attente / en cours) → En mission
-              const sessionDriverIds = Object.values(assignments).map(a => a.driverId);
-              const missionDriverIds = missions
-                .filter(m => ['en_attente', 'en_cours'].includes(m.status) && m.driverId)
-                .map(m => m.driverId as string);
-              const assignedHere = [...sessionDriverIds, ...missionDriverIds].includes(d.id);
-              const effStatus = assignedHere && d.status === 'disponible' ? 'en_mission' : d.status;
+              // Assigned to a mission (session or scheduled / in progress) → En mission
+              const effStatus = getEffectiveStatus(d);
               return (
                 <tr key={d.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3.5">
@@ -592,6 +651,7 @@ function AdminVehiclesPage({
   const [assignmentVehicleId, setAssignmentVehicleId] = useState<string | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({
     employeeId: '',
+    service: '',
     assignmentDate: new Date().toISOString().slice(0, 10),
   });
   const [assignmentErrors, setAssignmentErrors] = useState<Record<string, string>>({});
@@ -656,6 +716,7 @@ function AdminVehiclesPage({
     setAssignmentVehicleId(id);
     setAssignmentForm({
       employeeId: '',
+      service: '',
       assignmentDate: new Date().toISOString().slice(0, 10),
     });
     setAssignmentErrors({});
@@ -669,6 +730,7 @@ function AdminVehiclesPage({
   function handleAssignment() {
     const errors: Record<string, string> = {};
     if (!assignmentForm.employeeId) errors.employeeId = 'Sélectionnez un employé.';
+    if (!assignmentForm.service.trim()) errors.service = 'Indiquez le service ou la mission.';
     if (!assignmentForm.assignmentDate) errors.assignmentDate = "La date d'affectation est requise.";
     if (Object.keys(errors).length) {
       setAssignmentErrors(errors);
@@ -846,6 +908,24 @@ function AdminVehiclesPage({
         >
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="vehicle-assignment-title">
             <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <label htmlFor="vehicle-assignment-service" className="mb-1.5 block text-sm font-medium text-ink">
+                  Service ou mission <span className="text-danger">*</span>
+                </label>
+                <input
+                  id="vehicle-assignment-service"
+                  type="text"
+                  value={assignmentForm.service}
+                  onChange={e => {
+                    setAssignmentForm(form => ({ ...form, service: e.target.value }));
+                    setAssignmentErrors(errors => ({ ...errors, service: '' }));
+                  }}
+                  placeholder="Ex. Installation fibre optique"
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 ${assignmentErrors.service ? 'border-danger focus:ring-danger/20' : 'border-border focus:border-navy focus:ring-navy/15'}`}
+                />
+                {assignmentErrors.service && <p className="mt-1.5 text-xs text-danger">{assignmentErrors.service}</p>}
+              </div>
+
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-navy">Nouvelle affectation</p>
                 <h3 id="vehicle-assignment-title" className="text-ink font-bold">Affecter un véhicule</h3>

@@ -58,7 +58,7 @@ export default function AssignmentPage({ selectedId, onNavigate }: Props) {
           </svg>
         </div>
         <h3 className="text-ink text-xl font-bold mb-2">Toutes les missions sont affectées</h3>
-        <p className="text-muted text-sm mb-6">Il n'y a aucune mission en attente d'affectation.</p>
+        <p className="text-muted text-sm mb-6">Il n'y a aucune mission programmée à affecter.</p>
         <button onClick={() => onNavigate('fleet-dashboard')} className="px-5 py-2.5 bg-navy text-white font-semibold rounded-lg text-sm hover:bg-navy-dark transition-colors">
           Retour au tableau de bord
         </button>

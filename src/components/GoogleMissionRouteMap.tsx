@@ -111,14 +111,14 @@ export default function GoogleMissionRouteMap({ mission, className = '' }: Props
           const inProgress = mission.status === 'en_cours';
           const completed = mission.status === 'terminee';
           const draft = mission.status === 'brouillon';
-          const rejected = mission.status === 'rejetee' || mission.status === 'annulee';
+          const cancelled = mission.status === 'annulee';
           const progress = inProgress ? 0.8 : completed ? 1 : 0;
           const routePath = route.overview_path ?? [];
           const splitIndex = Math.round(progress * Math.max(routePath.length - 1, 0));
           const dottedOptions = {
             strokeOpacity: 0,
             icons: [{
-              icon: { path: googleApi.maps.SymbolPath.CIRCLE, scale: 2.4, fillColor: draft ? '#94a3b8' : rejected ? '#ef4444' : '#f59e0b', fillOpacity: 1, strokeOpacity: 0 },
+              icon: { path: googleApi.maps.SymbolPath.CIRCLE, scale: 2.4, fillColor: draft ? '#94a3b8' : cancelled ? '#ef4444' : '#f59e0b', fillOpacity: 1, strokeOpacity: 0 },
               offset: '0',
               repeat: '14px',
             }],
@@ -128,7 +128,7 @@ export default function GoogleMissionRouteMap({ mission, className = '' }: Props
             polylines.push(new googleApi.maps.Polyline({ map, path: routePath.slice(splitIndex), geodesic: true, ...dottedOptions }));
             polylines.push(new googleApi.maps.Polyline({ map, path: routePath.slice(0, splitIndex + 1), geodesic: true, strokeColor: '#16a34a', strokeOpacity: 0.98, strokeWeight: 6 }));
           } else {
-            const color = completed ? '#16a34a' : draft ? '#94a3b8' : rejected ? '#ef4444' : '#f59e0b';
+            const color = completed ? '#16a34a' : draft ? '#94a3b8' : cancelled ? '#ef4444' : '#f59e0b';
             polylines.push(new googleApi.maps.Polyline({
               map,
               path: routePath,

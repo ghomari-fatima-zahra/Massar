@@ -59,7 +59,7 @@ export default function FleetDashboard({ onNavigate }: Props) {
           <div className="divide-y divide-border/60">
             {pending.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-success font-medium text-sm">✓ Aucune mission en attente</p>
+                <p className="text-success font-medium text-sm">✓ Aucune mission programmée</p>
               </div>
             ) : pending.map(m => (
               <div key={m.id} className="px-5 py-3.5 flex items-start justify-between hover:bg-slate-50/50 transition-colors">

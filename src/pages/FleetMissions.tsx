@@ -4,20 +4,19 @@ import MissionRouteMap, { STATUS_PROGRESS } from '../components/MissionRouteMap'
 import { getMissionStops, missionRouteSummary, missions, vehicles, drivers } from '../data/mock';
 import type { Mission, Status } from '../data/mock';
 
-const STAGES = ['En attente', 'En cours', 'Terminée'] as const;
+const STAGES = ['Programmée', 'En cours', 'Terminée'] as const;
 const STAGE_STATUSES: Record<string, Status> = {
-  'En attente': 'en_attente',
+  Programmée: 'en_attente',
   'En cours': 'en_cours', 'Terminée': 'terminee',
 };
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
-  all: 'Toutes', brouillon: 'Brouillons', en_attente: 'En attente',
-  en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées', annulee: 'Annulées',
+  all: 'Toutes', brouillon: 'Brouillons', en_attente: 'Programmées',
+  en_cours: 'En cours', terminee: 'Terminées', annulee: 'Annulées',
 };
 
 const STATUS_DOT: Record<string, string> = {
   en_cours: 'bg-cyan-400', terminee: 'bg-emerald-400', en_attente: 'bg-amber-400',
-  rejetee: 'bg-red-400',
   annulee: 'bg-red-400', brouillon: 'bg-slate-400',
 };
 
@@ -43,9 +42,11 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
   const [filterStatus, setFilterStatus] = useState<string>(initialFilter ?? 'all');
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<MissionSort>('created_desc');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   // An assignment does not start a mission. The driver-start action is the
-  // only event that promotes En attente to En cours.
+  // only event that promotes a scheduled mission to En cours.
   const effMissions = missions.map(m => {
     const a = assignments[m.id];
     const override = statusOverrides[m.id];
@@ -56,7 +57,13 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
     };
   });
 
-  const filtered = effMissions.filter(m => {
+  const dateFiltered = effMissions.filter(m => {
+    if (fromDate && m.departureDate < fromDate) return false;
+    if (toDate && m.departureDate > toDate) return false;
+    return true;
+  });
+
+  const filtered = dateFiltered.filter(m => {
     if (filterStatus !== 'all' && m.status !== filterStatus) return false;
     if (search && !m.object.toLowerCase().includes(search.toLowerCase()) &&
         !m.employee.toLowerCase().includes(search.toLowerCase()) &&
@@ -76,37 +83,32 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
   const t = selected ? (STATUS_PROGRESS[selected.status as Status] ?? 0) : 0;
 
   const counts = {
-    en_cours: effMissions.filter(m => m.status === 'en_cours').length,
-    en_attente: effMissions.filter(m => m.status === 'en_attente').length,
-    terminee: effMissions.filter(m => m.status === 'terminee').length,
+    en_cours: dateFiltered.filter(m => m.status === 'en_cours').length,
+    en_attente: dateFiltered.filter(m => m.status === 'en_attente').length,
+    terminee: dateFiltered.filter(m => m.status === 'terminee').length,
   };
 
   return (
-    <div className="flex gap-4 h-full" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+    <div className="flex h-full flex-col gap-4" style={{ maxHeight: 'calc(100vh - 120px)' }}>
+      {/* KPI row stays visible above the working area. */}
+      <div className="grid shrink-0 grid-cols-3 gap-3">
+        {[
+          { label: 'En cours', key: 'en_cours', count: counts.en_cours, color: 'text-cyan-600', bg: 'bg-cyan-50 border-cyan-100' },
+          { label: 'Programmées', key: 'en_attente', count: counts.en_attente, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
+          { label: 'Terminées', key: 'terminee', count: counts.terminee, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100' },
+        ].map(s => {
+          const active = filterStatus === s.key;
+          return (
+            <button key={s.label} type="button" title={`Filtrer : ${s.label}`} onClick={() => setFilterStatus(active ? 'all' : s.key)} className={`rounded-xl border px-4 py-3 text-left transition-all ${s.bg} ${active ? 'ring-2 ring-navy shadow-md' : 'hover:shadow'}`}>
+              <p className={`text-2xl font-bold leading-none ${s.color}`}>{s.count}</p>
+              <p className="mt-1 text-sm font-medium text-slate-500">{s.label}</p>
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(360px,0.42fr)_minmax(0,0.58fr)]">
       {/* LEFT: mission list */}
-      <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-hidden">
-        {/* Quick stats — act as filters */}
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: 'En cours', key: 'en_cours', count: counts.en_cours, color: 'text-cyan-600', bg: 'bg-cyan-50 border-cyan-100' },
-            { label: 'En attente', key: 'en_attente', count: counts.en_attente, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-            { label: 'Terminées', key: 'terminee', count: counts.terminee, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100' },
-          ].map(s => {
-            const active = filterStatus === s.key;
-            return (
-              <button
-                key={s.label}
-                type="button"
-                title={`Filtrer : ${s.label}`}
-                onClick={() => setFilterStatus(active ? 'all' : s.key)}
-                className={`rounded-xl border px-3 py-2.5 text-left transition-all ${s.bg} ${active ? 'ring-2 ring-navy shadow-md' : 'hover:shadow'}`}
-              >
-                <p className={`text-lg font-bold leading-none ${s.color}`}>{s.count}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{s.label}</p>
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-slate-50/60 p-3">
 
         {/* Search */}
         <div className="relative">
@@ -152,6 +154,17 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
               </svg>
             </button>
           )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-xs font-semibold text-muted">
+            Du
+            <input aria-label="Date de début" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm focus:border-navy focus:outline-none" />
+          </label>
+          <label className="text-xs font-semibold text-muted">
+            Au
+            <input aria-label="Date de fin" type="date" value={toDate} onChange={event => setToDate(event.target.value)} className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm focus:border-navy focus:outline-none" />
+          </label>
         </div>
 
         {/* Mission ordering */}
@@ -232,7 +245,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
       </div>
 
       {/* RIGHT: map + popup overlay */}
-      <div className="flex-1 flex flex-col gap-3 min-w-0 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-white p-2 shadow-sm">
         <>
             {/* Map card — always visible */}
             <div className="flex-1 rounded-2xl overflow-hidden relative min-h-0 shadow-lg border border-border">
@@ -260,14 +273,13 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                   <span className={`pointer-events-auto text-xs font-bold px-3 py-1.5 rounded-xl shadow-md border ${
                     selected.status === 'en_cours' ? 'bg-cyan-500 text-white border-cyan-400' :
                     selected.status === 'terminee' ? 'bg-emerald-500 text-white border-emerald-400' :
-                    selected.status === 'rejetee' || selected.status === 'annulee' ? 'bg-red-500 text-white border-red-400' :
+                    selected.status === 'annulee' ? 'bg-red-500 text-white border-red-400' :
                     'bg-white text-navy border-navy/20'
                   }`}>
                     {selected.status === 'en_cours' ? '● En cours' :
                      selected.status === 'terminee' ? '✓ Terminée' :
-                     selected.status === 'rejetee' ? '✗ Rejetée' :
                      selected.status === 'annulee' ? '✗ Annulée' :
-                     selected.status === 'en_attente' ? '⏳ En attente' : selected.status}
+                     selected.status === 'en_attente' ? '⏳ Programmée' : selected.status}
                   </span>
                 </div>
               </div>
@@ -309,10 +321,10 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
                         {selected && STAGES.map((stage, idx) => {
-                          const rejected = selected.status === 'rejetee' || selected.status === 'annulee';
+                          const cancelled = selected.status === 'annulee';
                           const currentIdx = STAGES.findIndex(s => STAGE_STATUSES[s] === selected.status);
-                          const done = !rejected && idx < currentIdx;
-                          const current = !rejected && idx === currentIdx;
+                          const done = !cancelled && idx < currentIdx;
+                          const current = !cancelled && idx === currentIdx;
                           return (
                             <div key={stage} className="flex items-center gap-1">
                               <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -426,6 +438,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
               )}
             </div>
         </>
+      </div>
       </div>
     </div>
   );

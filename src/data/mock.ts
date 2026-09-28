@@ -1,5 +1,5 @@
 export type Status =
-  | 'brouillon' | 'en_attente' | 'validee' | 'rejetee'
+  | 'brouillon' | 'en_attente' | 'validee'
   | 'affectee' | 'confirmee' | 'en_cours' | 'terminee' | 'annulee';
 
 export type Role = 'admin';
@@ -60,7 +60,6 @@ export interface Mission {
   driverId?: string;
   createdAt: string;
   validatedBy?: string;
-  rejectionReason?: string;
 }
 
 export interface Vehicle {
@@ -109,9 +108,8 @@ export interface Notification {
 
 export const STATUS_LABELS: Record<Status, string> = {
   brouillon: 'Brouillon',
-  en_attente: 'En attente',
+  en_attente: 'Programmée',
   validee: 'Validée',
-  rejetee: 'Rejetée',
   affectee: 'Affectée',
   confirmee: 'Confirmée',
   en_cours: 'En cours',
@@ -292,8 +290,7 @@ export const missions: Mission[] = [
     passengers: 3,
     vehicleNeeded: true,
     vehicleType: 'Minibus',
-    status: 'rejetee',
-    rejectionReason: 'Véhicule non disponible pour cette date. Veuillez reprogrammer la mission.',
+    status: 'annulee',
     createdAt: '2026-03-09',
   },
 ];
@@ -311,7 +308,7 @@ export const users: AppUser[] = [
 export const notifications: Notification[] = [
   { id: 'N001', title: 'Mission validée', body: 'Votre mission M2026-002 vers Blida a été validée.', type: 'success', read: false, createdAt: '2026-03-14T10:30:00' },
   { id: 'N002', title: 'Véhicule affecté', body: 'Un véhicule (Renault Symbol – 16-98765-DZ) a été affecté à votre mission M2026-003.', type: 'info', read: false, createdAt: '2026-03-14T14:15:00' },
-  { id: 'N003', title: 'Mission rejetée', body: 'Votre mission M2026-007 a été rejetée. Motif : véhicule non disponible.', type: 'danger', read: false, createdAt: '2026-03-13T09:00:00' },
+  { id: 'N003', title: 'Mission annulée', body: 'Votre mission M2026-007 a été annulée. Veuillez choisir une nouvelle date.', type: 'danger', read: false, createdAt: '2026-03-13T09:00:00' },
   { id: 'N004', title: 'Permis expirant bientôt', body: 'Le permis du conducteur Ibrahim Salhi expire le 20/11/2026.', type: 'warning', read: true, createdAt: '2026-03-12T08:00:00' },
   { id: 'N005', title: 'Inspection technique requise', body: 'Le véhicule Hyundai H1 (23-45678-DZ) doit être présenté à l\'inspection.', type: 'warning', read: true, createdAt: '2026-03-11T16:00:00' },
   { id: 'N006', title: 'Mission en cours', body: 'La mission M2026-004 vers Annaba est maintenant en cours.', type: 'info', read: true, createdAt: '2026-03-15T09:05:00' },

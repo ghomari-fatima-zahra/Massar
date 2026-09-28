@@ -32,7 +32,7 @@ export default function MissionDetail({ missionId, assignments, statusOverrides,
   const activityLog = [
     { date: mission.createdAt, time: '10:23', action: 'Mission créée', by: mission.employee, color: 'bg-muted' },
     ...(mission.status !== 'brouillon' ? [{ date: mission.createdAt, time: '10:24', action: 'Soumise pour validation', by: mission.employee, color: 'bg-[#F59E0B]' }] : []),
-    ...(mission.validatedBy ? [{ date: mission.departureDate, time: '09:15', action: mission.status === 'rejetee' ? 'Mission rejetée' : 'Mission validée', by: mission.validatedBy, color: mission.status === 'rejetee' ? 'bg-danger' : 'bg-success' }] : []),
+    ...(mission.validatedBy ? [{ date: mission.departureDate, time: '09:15', action: 'Mission validée', by: mission.validatedBy, color: 'bg-success' }] : []),
     ...(mission.vehicleId ? [{ date: mission.departureDate, time: '11:00', action: 'Véhicule et conducteur affectés', by: 'Rachid Aouad', color: 'bg-[#0284C7]' }] : []),
   ];
 
@@ -79,7 +79,7 @@ export default function MissionDetail({ missionId, assignments, statusOverrides,
       </div>
 
       {/* Timeline */}
-      {mission.status !== 'rejetee' && mission.status !== 'annulee' && (
+      {mission.status !== 'annulee' && (
         <div className="bg-white rounded-xl border border-border shadow-sm p-5">
           <h3 className="text-ink font-semibold mb-4 text-sm uppercase tracking-wide text-muted">Progression</h3>
           <div className="flex items-center">
@@ -114,15 +114,14 @@ export default function MissionDetail({ missionId, assignments, statusOverrides,
         </div>
       )}
 
-      {/* Rejection banner */}
-      {mission.status === 'rejetee' && mission.rejectionReason && (
-        <div className="flex items-start gap-3 p-4 bg-danger-bg border border-red-200 rounded-xl">
+      {mission.status === 'annulee' && (
+        <div className="flex items-start gap-3 p-4 bg-warning-bg border border-amber-200 rounded-xl">
           <svg className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
           </svg>
           <div>
-            <p className="text-danger font-semibold text-sm">Mission rejetée</p>
-            <p className="text-danger/80 text-sm mt-0.5">{mission.rejectionReason}</p>
+            <p className="text-warning font-semibold text-sm">Mission annulée</p>
+            <p className="text-warning/80 text-sm mt-0.5">Cette mission n'est plus planifiée.</p>
           </div>
         </div>
       )}

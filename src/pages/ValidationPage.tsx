@@ -10,10 +10,8 @@ interface Props {
 export default function ValidationPage({ selectedId, onNavigate }: Props) {
   const pending = missions.filter(m => m.status === 'en_attente');
   const [activeMissionId, setActiveMissionId] = useState(selectedId || pending[0]?.id || '');
-  const [showModal, setShowModal] = useState<'approve' | 'reject' | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [reasonError, setReasonError] = useState('');
-  const [done, setDone] = useState<{ id: string; action: 'approved' | 'rejected' }[]>([]);
+  const [showModal, setShowModal] = useState<'approve' | null>(null);
+  const [done, setDone] = useState<{ id: string; action: 'approved' }[]>([]);
 
   const activeMission = missions.find(m => m.id === activeMissionId);
   const remainingPending = pending.filter(m => !done.find(d => d.id === m.id));
@@ -21,16 +19,6 @@ export default function ValidationPage({ selectedId, onNavigate }: Props) {
   function handleApprove() {
     setDone(d => [...d, { id: activeMissionId, action: 'approved' }]);
     setShowModal(null);
-    const next = remainingPending.find(m => m.id !== activeMissionId);
-    if (next) setActiveMissionId(next.id);
-  }
-
-  function handleReject() {
-    if (!rejectReason.trim()) { setReasonError('Le motif de rejet est obligatoire.'); return; }
-    setDone(d => [...d, { id: activeMissionId, action: 'rejected' }]);
-    setShowModal(null);
-    setRejectReason('');
-    setReasonError('');
     const next = remainingPending.find(m => m.id !== activeMissionId);
     if (next) setActiveMissionId(next.id);
   }
@@ -44,7 +32,7 @@ export default function ValidationPage({ selectedId, onNavigate }: Props) {
           </svg>
         </div>
         <h3 className="text-ink text-xl font-bold mb-2">File de validation traitée</h3>
-        <p className="text-muted text-sm mb-6">Toutes les demandes en attente ont été traitées.</p>
+        <p className="text-muted text-sm mb-6">Toutes les demandes programmées ont été traitées.</p>
         <button onClick={() => onNavigate('fleet-dashboard')} className="px-5 py-2.5 bg-navy text-white font-semibold rounded-lg text-sm hover:bg-navy-dark transition-colors">
           Retour au tableau de bord
         </button>
@@ -57,7 +45,7 @@ export default function ValidationPage({ selectedId, onNavigate }: Props) {
       {/* Left: mission list */}
       <div className="w-72 flex-shrink-0 space-y-2">
         <h3 className="text-muted text-xs font-semibold uppercase tracking-wider px-1 mb-3">
-          En attente ({remainingPending.length})
+          Programmées ({remainingPending.length})
         </h3>
         {remainingPending.map(m => {
           const isDone = done.find(d => d.id === m.id);
@@ -121,12 +109,6 @@ export default function ValidationPage({ selectedId, onNavigate }: Props) {
             <p className="text-muted text-sm">Traitez cette demande de mission avant de passer à la suivante.</p>
             <div className="flex gap-3">
               <button
-                onClick={() => setShowModal('reject')}
-                className="px-5 py-2.5 border border-danger text-danger font-semibold text-sm rounded-lg hover:bg-danger-bg transition-colors"
-              >
-                Rejeter
-              </button>
-              <button
                 onClick={() => setShowModal('approve')}
                 className="px-5 py-2.5 bg-success text-white font-semibold text-sm rounded-lg hover:bg-green-700 transition-colors"
               >
@@ -160,34 +142,6 @@ export default function ValidationPage({ selectedId, onNavigate }: Props) {
       )}
 
       {/* Rejection modal */}
-      {showModal === 'reject' && (
-        <Modal onClose={() => { setShowModal(null); setRejectReason(''); setReasonError(''); }}>
-          <div>
-            <div className="w-14 h-14 bg-danger-bg rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-7 h-7 text-danger" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-            <h3 className="text-ink text-lg font-bold mb-1 text-center">Rejeter la mission</h3>
-            <p className="text-muted text-sm mb-5 text-center">Indiquez le motif du rejet. L'employé en sera informé.</p>
-            <label className="block text-sm font-medium text-ink mb-1.5">
-              Motif du rejet <span className="text-danger">*</span>
-            </label>
-            <textarea
-              rows={4}
-              placeholder="ex. Véhicule non disponible pour la période demandée. Veuillez reprogrammer votre mission."
-              className={`w-full px-3.5 py-2.5 rounded-lg border text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 resize-none transition-all ${reasonError ? 'border-danger focus:ring-danger/20 bg-danger-bg/20' : 'border-border focus:border-navy focus:ring-navy/15'}`}
-              value={rejectReason}
-              onChange={e => { setRejectReason(e.target.value); setReasonError(''); }}
-            />
-            {reasonError && <p className="mt-1.5 text-xs text-danger">{reasonError}</p>}
-            <div className="flex gap-3 justify-center mt-5">
-              <button onClick={() => { setShowModal(null); setRejectReason(''); setReasonError(''); }} className="px-5 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">Annuler</button>
-              <button onClick={handleReject} className="px-6 py-2.5 bg-danger text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors">Confirmer le rejet</button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ export default function ParametresPage({ onNavigate: _onNavigate }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-ink mb-1.5">Nom de l'organisation</label>
-              <input type="text" value="Algérie Télécom" className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm text-ink bg-slate-50" readOnly />
+              <input type="text" value="Massar Fleet" className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm text-ink bg-slate-50" readOnly />
             </div>
             <div>
               <label className="block text-sm font-medium text-ink mb-1.5">Code organisation</label>

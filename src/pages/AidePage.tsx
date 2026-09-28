@@ -4,19 +4,19 @@ import { currentUsers } from '../data/mock';
 const FAQS = [
   {
     q: 'Comment créer une mission ?',
-    a: "Ouvrez « Nouvelle demande », choisissez le demandeur dans la liste des employés, renseignez le départ, la destination et ajoutez les étapes intermédiaires nécessaires. Activez « Mission aller-retour » pour revenir automatiquement au point de départ. La mission est créée avec le statut En attente.",
+    a: "Ouvrez « Nouvelle demande », choisissez le demandeur dans la liste des employés, renseignez le départ, la destination et ajoutez les étapes intermédiaires nécessaires. Activez « Mission aller-retour » pour revenir automatiquement au point de départ. La mission est créée avec le statut Programmée.",
   },
   {
     q: 'Comment une mission démarre-t-elle ?',
-    a: "C'est le conducteur qui appuie sur « Démarrer la mission ». Le statut passe alors automatiquement de En attente à En cours, et le conducteur passe En mission.",
+    a: "C'est le conducteur qui appuie sur « Démarrer la mission ». Le statut passe alors automatiquement de Programmée à En cours, et le conducteur passe En mission.",
   },
   {
     q: 'Que signifient les statuts ?',
-    a: "En attente : mission créée, en attente de démarrage. En cours : le conducteur a démarré. Terminée : mission clôturée, le conducteur déclare son arrivée (date de retour facultative à la création). Rejetée : demande refusée avec motif.",
+    a: "Programmée : mission créée et prête à être démarrée. En cours : le conducteur a démarré. Terminée : mission clôturée, le conducteur déclare son arrivée. Annulée : la mission n'est plus planifiée.",
   },
   {
     q: 'Pourquoi un conducteur passe-t-il En mission tout seul ?',
-    a: "Le statut En mission est automatique dès que le conducteur est affecté à une mission en attente ou en cours. L'administrateur peut changer manuellement les autres statuts via l'icône de modification.",
+    a: "Le statut En mission est automatique dès que le conducteur est affecté à une mission programmée ou en cours. L'administrateur peut changer manuellement les autres statuts via l'icône de modification.",
   },
   {
     q: 'Comment suivre les inspections des véhicules ?',

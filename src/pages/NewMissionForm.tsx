@@ -90,6 +90,9 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
   const [draft, setDraft] = useState(false);
   const [demandeurSuggestionsOpen, setDemandeurSuggestionsOpen] = useState(false);
 
+  const selectedVehicle = form.assignedVehicleId ? vehicles.find(vehicle => vehicle.id === form.assignedVehicleId) : undefined;
+  const maxPassengers = selectedVehicle?.capacity ?? 9;
+
   function set(field: string, val: unknown) {
     setForm(f => ({ ...f, [field]: val }));
     setErrors(e => { const n = { ...e }; delete n[field]; return n; });
@@ -107,6 +110,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
     if (!form.assignedDriverId) e.assignedDriverId = 'Choisissez un conducteur disponible.';
     if (!form.vehicleCategory) e.vehicleCategory = 'Choisissez d’abord voiture ou bus.';
     if (!form.assignedVehicleId) e.assignedVehicleId = 'Choisissez un véhicule disponible.';
+    if (form.passengers > maxPassengers) e.passengers = `Ce véhicule accueille au maximum ${maxPassengers} passagers.`;
     return e;
   }
 
@@ -317,12 +321,13 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
           </div>
 
           {/* Passengers */}
-          <Field label="Nombre de passagers (vous inclus)" required>
+          <Field label="Nombre de passagers" error={errors.passengers} required>
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => set('passengers', Math.max(1, form.passengers - 1))} className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-ink hover:bg-slate-50 transition-colors text-lg font-medium">−</button>
               <span className="w-12 text-center text-ink font-semibold text-lg">{form.passengers}</span>
-              <button type="button" onClick={() => set('passengers', Math.min(50, form.passengers + 1))} className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-ink hover:bg-slate-50 transition-colors text-lg font-medium">+</button>
+              <button type="button" disabled={form.passengers >= maxPassengers} onClick={() => set('passengers', Math.min(maxPassengers, form.passengers + 1))} className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-ink hover:bg-slate-50 transition-colors text-lg font-medium disabled:opacity-40">+</button>
             </div>
+            <p className="mt-1.5 text-sm text-muted">Maximum : {maxPassengers} places{selectedVehicle ? ` avec ${selectedVehicle.brand} ${selectedVehicle.model}` : ''}.</p>
           </Field>
 
           {/* Véhicule + conducteur choisis dans la section Affectation ci-dessous */}
@@ -384,7 +389,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
                         <button
                           key={category.id}
                           type="button"
-                          onClick={() => { set('vehicleCategory', category.id); set('assignedVehicleId', ''); }}
+                          onClick={() => { set('vehicleCategory', category.id); set('assignedVehicleId', ''); set('passengers', Math.min(form.passengers, 9)); }}
                           className={`rounded-xl border px-3 py-2.5 text-left transition-all ${form.vehicleCategory === category.id ? 'border-navy bg-navy-light ring-1 ring-navy/20' : 'border-border hover:border-navy/40'}`}
                         >
                           <span className="block text-sm font-semibold text-ink">{category.label}</span>
@@ -400,7 +405,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
                           <button
                             key={v.id}
                             type="button"
-                            onClick={() => set('assignedVehicleId', v.id)}
+                            onClick={() => { set('assignedVehicleId', v.id); set('passengers', Math.min(form.passengers, v.capacity)); }}
                             className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all ${
                               form.assignedVehicleId === v.id
                                 ? 'border-navy bg-navy-light'
@@ -440,7 +445,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
         </div>
 
         <div className="px-6 py-4 border-t border-border bg-slate-50/50 flex items-center justify-between rounded-b-xl">
-          <button onClick={onBack} className="px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors">
+          <button onClick={onBack} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-slate-100">
             Annuler
           </button>
           <div className="flex gap-3">

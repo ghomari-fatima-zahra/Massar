@@ -85,7 +85,7 @@ export default function Layout({
       </a>
       <div className="flex min-h-screen">
         <aside
-          className={`flex shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] transition-[width] duration-200 ease-out ${
+          className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-[var(--line)] bg-[var(--surface)] transition-[width] duration-200 ease-out ${
             sidebarOpen ? 'w-[248px]' : 'w-[76px]'
           }`}
         >
@@ -111,36 +111,12 @@ export default function Layout({
                   <p className="text-xs font-semibold text-[var(--ink)]">
                     Massar
                   </p>
-                  <p className="mt-0.5 text-[10px] text-[var(--ink-muted)]">
-                    Algérie Télécom
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className={`px-3 ${sidebarOpen ? '' : 'px-2'}`}>
-            <div
-              className={`flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-muted)] p-2.5 ${
-                sidebarOpen ? '' : 'justify-center'
-              }`}
-            >
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--navy)] text-[11px] font-bold text-white">
-                NF
-              </div>
-              {sidebarOpen && (
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold text-[var(--ink)]">
-                    Nadia Ferdi
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-[var(--ink-muted)]">
-                    Administrateur
-                  </p>
                 </div>
               )}
             </div>
           </div>
           <nav
-            className="flex-1 overflow-y-auto px-3 pb-4 pt-7"
+            className="flex-1 overflow-hidden px-3 pb-4 pt-7"
             aria-label="Navigation principale"
           >
             {sidebarOpen && (
@@ -149,7 +125,7 @@ export default function Layout({
               </p>
             )}
             <div className="space-y-1">
-              {navItems.map((item) => {
+              {navItems.slice(0, 2).map((item) => {
                 const Icon = item.icon;
                 const active = currentPage === item.id;
                 const count =
@@ -190,10 +166,40 @@ export default function Layout({
             </div>
             {sidebarOpen && (
               <p className="mb-2 mt-8 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">
-                Outils
+                Administration
               </p>
             )}
             <div className="space-y-1">
+              {navItems.slice(2).map((item) => {
+                const Icon = item.icon;
+                const active = currentPage === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={!sidebarOpen ? item.label : undefined}
+                    onClick={() => onNavigate(item.id)}
+                    className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${
+                      sidebarOpen ? '' : 'justify-center px-0'
+                    } ${
+                      active
+                        ? 'bg-[var(--surface-muted)] font-semibold text-[var(--ink)]'
+                        : 'text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    <Icon size={18} />
+                    {sidebarOpen && <span>{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+          <div
+            className={`border-t border-[var(--line)] p-3 ${
+              sidebarOpen ? '' : 'px-2'
+            }`}
+          >
+            <div className="mb-3 space-y-1">
               {toolItems.map((item) => {
                 const Icon = item.icon;
                 const active = currentPage === item.id;
@@ -217,12 +223,6 @@ export default function Layout({
                 );
               })}
             </div>
-          </nav>
-          <div
-            className={`border-t border-[var(--line)] p-3 ${
-              sidebarOpen ? '' : 'px-2'
-            }`}
-          >
             <button
               type="button"
               title={!sidebarOpen ? 'Se déconnecter' : undefined}
@@ -234,11 +234,7 @@ export default function Layout({
               <SignOut size={18} />
               {sidebarOpen && <span>Se déconnecter</span>}
             </button>
-            {sidebarOpen && (
-              <p className="mt-3 px-3 text-[10px] text-[var(--ink-muted)]">
-                DG · Algérie Télécom
-              </p>
-            )}
+            {sidebarOpen && <p className="mt-3 px-3 text-[10px] leading-4 text-[var(--ink-muted)]">© 2026 Massar Fleet. Tous droits réservés.</p>}
           </div>
         </aside>
 
@@ -254,7 +250,7 @@ export default function Layout({
             </button>
             <div className="hidden h-5 w-px bg-[var(--line)] sm:block" />
             <div className="hidden items-center gap-2 text-xs text-[var(--ink-muted)] sm:flex">
-              <span>{breadcrumb ?? 'Opérations'}</span>
+              <span>{breadcrumb ?? 'Gestion de flotte'}</span>
               <CaretRight size={13} />
               <span className="font-medium text-[var(--ink-soft)]">
                 {activeLabel}
@@ -377,9 +373,13 @@ export default function Layout({
 
           <main
             id="main-content"
-            className="flex-1 overflow-y-auto px-5 py-7 lg:px-8 lg:py-9"
+            className="flex flex-1 flex-col overflow-y-auto px-5 py-7 lg:px-8 lg:py-9"
           >
-            {children}
+            <div className="flex-1">{children}</div>
+            <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-5 text-xs text-[var(--ink-muted)]">
+              <span>© 2026 Massar Fleet. Tous droits réservés.</span>
+              <span>Version 1.0.0</span>
+            </footer>
           </main>
         </div>
       </div>
