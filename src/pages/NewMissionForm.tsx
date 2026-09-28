@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { getMissionStops, makeMissionRoute, vehicles, drivers, users } from '../data/mock';
-import type { Mission, MissionRoute } from '../data/mock';
+import { getMissionStops, makeMissionRoute, vehicles, drivers } from '../data/mock';
+import type { AppUser, Mission, MissionRoute } from '../data/mock';
 
 interface FormState {
   demandeurId: string;
@@ -25,6 +25,7 @@ interface FormState {
 interface Props {
   onNavigate: (page: string) => void;
   onBack: () => void;
+  employees: AppUser[];
   initialMission?: Mission | null;
   onSubmitMission?: (data: {
     missionId?: string;
@@ -82,7 +83,7 @@ function missionToForm(mission?: Mission | null): FormState {
   };
 }
 
-export default function NewMissionForm({ onNavigate, onBack, initialMission, onSubmitMission }: Props) {
+export default function NewMissionForm({ onNavigate, onBack, employees, initialMission, onSubmitMission }: Props) {
   const [form, setForm] = useState<FormState>(() => missionToForm(initialMission));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -206,8 +207,8 @@ export default function NewMissionForm({ onNavigate, onBack, initialMission, onS
               />
               {demandeurSuggestionsOpen && (
                 <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-white p-1 shadow-xl">
-                  {users
-                    .filter(u => u.role === 'employee' && u.status === 'actif')
+                  {employees
+                    .filter(u => u.status === 'actif')
                     .filter(employee => {
                       const query = form.demandeurQuery.trim().toLowerCase();
                       return !query || `${employee.name} ${employee.matricule} ${employee.structure}`.toLowerCase().includes(query);
@@ -226,7 +227,7 @@ export default function NewMissionForm({ onNavigate, onBack, initialMission, onS
                 </div>
               )}
             </div>
-            <p className="mt-1 text-[11px] text-muted">Seuls les utilisateurs actifs avec le rôle Employé peuvent être demandeurs.</p>
+            <p className="mt-1 text-[11px] text-muted">Seuls les utilisateurs actifs peuvent être demandeurs.</p>
           </Field>
 
           {/* Type */}

@@ -2,7 +2,7 @@ export type Status =
   | 'brouillon' | 'en_attente' | 'validee' | 'rejetee'
   | 'affectee' | 'confirmee' | 'en_cours' | 'terminee' | 'annulee';
 
-export type Role = 'employee' | 'fleet_manager' | 'admin';
+export type Role = 'admin';
 
 export interface MissionStop {
   id: string;
@@ -67,6 +67,7 @@ export interface Vehicle {
   id: string;
   category: 'car' | 'bus';
   registration: string;
+  gps: string;
   brand: string;
   model: string;
   type: string;
@@ -119,11 +120,11 @@ export const STATUS_LABELS: Record<Status, string> = {
 };
 
 export const vehicles: Vehicle[] = [
-  { id: 'V001', category: 'car', registration: '16-12345-DZ', brand: 'Toyota', model: 'Land Cruiser', type: 'SUV', capacity: 7, status: 'disponible', lastInspection: '2026-01-10', nextInspection: '2027-01-10' },
-  { id: 'V002', category: 'car', registration: '16-98765-DZ', brand: 'Renault', model: 'Symbol', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-02-15', nextInspection: '2027-02-15' },
-  { id: 'V003', category: 'bus', registration: '23-45678-DZ', brand: 'Hyundai', model: 'H1', type: 'Minibus', capacity: 12, status: 'maintenance', lastInspection: '2025-12-01', nextInspection: '2026-06-01' },
-  { id: 'V004', category: 'car', registration: '16-11111-DZ', brand: 'Peugeot', model: '301', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-03-01', nextInspection: '2027-03-01' },
-  { id: 'V005', category: 'bus', registration: '31-22222-DZ', brand: 'Mercedes', model: 'Vito', type: 'Minivan', capacity: 8, status: 'disponible', lastInspection: '2026-02-20', nextInspection: '2027-02-20' },
+  { id: 'V001', category: 'car', registration: '16-12345-DZ', gps: 'GPS-DZ-16001', brand: 'Toyota', model: 'Land Cruiser', type: 'SUV', capacity: 7, status: 'disponible', lastInspection: '2026-01-10', nextInspection: '2027-01-10' },
+  { id: 'V002', category: 'car', registration: '16-98765-DZ', gps: 'GPS-DZ-16002', brand: 'Renault', model: 'Symbol', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-02-15', nextInspection: '2027-02-15' },
+  { id: 'V003', category: 'bus', registration: '23-45678-DZ', gps: 'GPS-DZ-23001', brand: 'Hyundai', model: 'H1', type: 'Minibus', capacity: 12, status: 'maintenance', lastInspection: '2025-12-01', nextInspection: '2026-06-01' },
+  { id: 'V004', category: 'car', registration: '16-11111-DZ', gps: 'GPS-DZ-16003', brand: 'Peugeot', model: '301', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-03-01', nextInspection: '2027-03-01' },
+  { id: 'V005', category: 'bus', registration: '31-22222-DZ', gps: 'GPS-DZ-31001', brand: 'Mercedes', model: 'Vito', type: 'Minivan', capacity: 8, status: 'disponible', lastInspection: '2026-02-20', nextInspection: '2027-02-20' },
 ];
 
 export const drivers: Driver[] = [
@@ -298,13 +299,13 @@ export const missions: Mission[] = [
 ];
 
 export const users: AppUser[] = [
-  { id: 'U001', name: 'Mohamed Salah Benali', email: 'ms.benali@dot.dz', matricule: 'ALT-2341', role: 'employee', structure: 'Direction Régionale Oran', status: 'actif', createdAt: '2022-06-15' },
-  { id: 'U002', name: 'Fatima Zohra Khelif', email: 'fz.khelif@dot.dz', matricule: 'ALT-1876', role: 'employee', structure: 'Division Infrastructure', status: 'actif', createdAt: '2021-09-01' },
-  { id: 'U003', name: 'Karim Meziani', email: 'k.meziani@dot.dz', matricule: 'ALT-3012', role: 'employee', structure: 'Centre Télécom Tlemcen', status: 'actif', createdAt: '2023-01-20' },
-  { id: 'U004', name: 'Amina Bouhired', email: 'a.bouhired@dot.dz', matricule: 'ALT-0987', role: 'employee', structure: 'Direction Générale', status: 'actif', createdAt: '2020-03-10' },
-  { id: 'U005', name: 'Rachid Aouad', email: 'r.aouad@dot.dz', matricule: 'ALT-0542', role: 'fleet_manager', structure: 'Direction Générale', status: 'actif', createdAt: '2019-11-05' },
+  { id: 'U001', name: 'Mohamed Salah Benali', email: 'ms.benali@dot.dz', matricule: 'ALT-2341', role: 'admin', structure: 'Direction Régionale Oran', status: 'actif', createdAt: '2022-06-15' },
+  { id: 'U002', name: 'Fatima Zohra Khelif', email: 'fz.khelif@dot.dz', matricule: 'ALT-1876', role: 'admin', structure: 'Division Infrastructure', status: 'actif', createdAt: '2021-09-01' },
+  { id: 'U003', name: 'Karim Meziani', email: 'k.meziani@dot.dz', matricule: 'ALT-3012', role: 'admin', structure: 'Centre Télécom Tlemcen', status: 'actif', createdAt: '2023-01-20' },
+  { id: 'U004', name: 'Amina Bouhired', email: 'a.bouhired@dot.dz', matricule: 'ALT-0987', role: 'admin', structure: 'Direction Générale', status: 'actif', createdAt: '2020-03-10' },
+  { id: 'U005', name: 'Rachid Aouad', email: 'r.aouad@dot.dz', matricule: 'ALT-0542', role: 'admin', structure: 'Direction Générale', status: 'actif', createdAt: '2019-11-05' },
   { id: 'U006', name: 'Nadia Ferdi', email: 'n.ferdi@dot.dz', matricule: 'ALT-0120', role: 'admin', structure: 'Direction Générale', status: 'actif', createdAt: '2018-07-22' },
-  { id: 'U007', name: 'Omar Haddad', email: 'o.haddad@dot.dz', matricule: 'ALT-4100', role: 'employee', structure: 'Direction Régionale Constantine', status: 'inactif', createdAt: '2021-04-18' },
+  { id: 'U007', name: 'Omar Haddad', email: 'o.haddad@dot.dz', matricule: 'ALT-4100', role: 'admin', structure: 'Direction Régionale Constantine', status: 'inactif', createdAt: '2021-04-18' },
 ];
 
 export const notifications: Notification[] = [
@@ -318,7 +319,5 @@ export const notifications: Notification[] = [
 ];
 
 export const currentUsers: Record<Role, AppUser> = {
-  employee: users[0],
-  fleet_manager: users[4],
   admin: users[5],
 };

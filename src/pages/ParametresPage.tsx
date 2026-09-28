@@ -18,15 +18,11 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
 ];
 
 const ROLE_LABELS: Record<Role, string> = {
-  employee: 'Employé',
-  fleet_manager: 'Gestionnaire flotte',
   admin: 'Administrateur',
 };
 
 const ROLE_COLORS: Record<Role, string> = {
-  employee: 'bg-slate-100 text-slate-700',
-  fleet_manager: 'bg-navy-light text-navy',
-  admin: 'bg-amber-50 text-amber-700',
+  admin: 'bg-[#EDE9FE] text-[#6D28D9]',
 };
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString('fr-DZ', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -40,7 +36,7 @@ export default function ParametresPage({ onNavigate: _onNavigate }: Props) {
     name: '',
     email: '',
     matricule: '',
-    role: 'employee' as Role,
+    role: 'admin' as Role,
     structure: '',
     status: 'actif' as 'actif' | 'inactif',
   });
@@ -52,7 +48,7 @@ export default function ParametresPage({ onNavigate: _onNavigate }: Props) {
       setForm({ name: u.name, email: u.email, matricule: u.matricule, role: u.role, structure: u.structure, status: u.status });
     } else {
       setEditingUser(null);
-      setForm({ name: '', email: '', matricule: '', role: 'employee', structure: '', status: 'actif' });
+      setForm({ name: '', email: '', matricule: '', role: 'admin', structure: '', status: 'actif' });
     }
     setErrors({});
     setShowUserModal(true);
@@ -365,12 +361,8 @@ export default function ParametresPage({ onNavigate: _onNavigate }: Props) {
                   {errors.matricule && <p className="mt-1.5 text-xs text-danger">⚠ {errors.matricule}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-ink mb-1.5">Rôle <span className="text-danger">*</span></label>
-                  <select className={inputClass('role')} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as Role }))}>
-                    <option value="employee">Employé</option>
-                    <option value="fleet_manager">Gestionnaire flotte</option>
-                    <option value="admin">Administrateur</option>
-                  </select>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Rôle</label>
+                  <div className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm text-ink bg-slate-50 font-medium">Administrateur</div>
                 </div>
               </div>
               <div>

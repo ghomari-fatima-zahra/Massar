@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { vehicles, drivers, missions, users } from './data/mock';
-import type { Driver, MissionRoute, Status } from './data/mock';
+import type { Driver, MissionRoute, Status, AppUser } from './data/mock';
 import { Bus, Car } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -12,10 +12,11 @@ import AdminDashboard from './pages/AdminDashboard';
 import NotificationsPage from './pages/NotificationsPage';
 import ParametresPage from './pages/ParametresPage';
 import AidePage from './pages/AidePage';
+import EmployesPage from './pages/EmployesPage';
 
 type Page =
   | 'admin-dashboard' | 'fleet-missions' | 'new-mission' | 'mission-detail'
-  | 'admin-drivers' | 'admin-vehicles' | 'admin-structures' | 'notifications'
+  | 'admin-drivers' | 'employes' | 'admin-vehicles' | 'admin-structures' | 'notifications'
   | 'parametres' | 'aide';
 
 const PAGE_TITLES: Record<string, string> = {
@@ -24,6 +25,7 @@ const PAGE_TITLES: Record<string, string> = {
   'new-mission': 'Nouvelle demande',
   'mission-detail': 'Détail de la mission',
   'admin-drivers': 'Conducteurs',
+  'employes': 'Employés',
   'admin-vehicles': 'Véhicules',
   'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
@@ -35,6 +37,7 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
   'new-mission': 'Missions',
   'mission-detail': 'Missions',
   'admin-drivers': 'Administration',
+  'employes': 'Administration',
   'admin-vehicles': 'Administration',
   'admin-structures': 'Administration',
   parametres: 'Administration',
@@ -51,6 +54,8 @@ export default function App() {
   const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
   // Driver-pressed starts: mission status switches En attente → En cours
   const [statusOverrides, setStatusOverrides] = useState<Record<string, Status>>({});
+  // Company employees (demandeurs) — admin managed
+  const [employeeList, setEmployeeList] = useState<AppUser[]>(users);
 
   // Driver presses "Démarrer": the mission starts immediately
   function handleStartMission(missionId: string) {
@@ -86,7 +91,7 @@ export default function App() {
     notes: string;
   }) {
     const assignedVehicle = vehicles.find(v => v.id === data.assignedVehicleId);
-    const demandeur = users.find(u => u.id === data.demandeurId) ?? users.find(u => u.role === 'employee');
+    const demandeur = employeeList.find(u => u.id === data.demandeurId) ?? employeeList.find(u => u.status === 'actif');
 
     if (data.missionId) {
       const index = missions.findIndex(mission => mission.id === data.missionId);
@@ -153,7 +158,7 @@ export default function App() {
       passengers: data.passengers,
       vehicleNeeded: Boolean(data.assignedVehicleId),
       vehicleType: assignedVehicle?.type ?? '',
-      status: (data.saveAsDraft ? 'brouillon' : 'en_attente') as const,
+      status: (data.saveAsDraft ? 'brouillon' : 'en_attente') as Status,
       vehicleId: data.assignedVehicleId || undefined,
       driverId: data.assignedDriverId || undefined,
       createdAt: new Date().toISOString().split('T')[0],
@@ -205,11 +210,22 @@ export default function App() {
       case 'fleet-missions':
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
+        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} employees={employeeList} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
       case 'mission-detail':
         return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
+      case 'employes':
+        return (
+          <EmployesPage
+            employees={employeeList}
+            onAdd={(data) => {
+              const id = `U${String(employeeList.length + 1).padStart(3, '0')}`;
+              setEmployeeList(list => [...list, { ...data, id, role: 'admin', status: 'actif' as const, createdAt: new Date().toISOString().slice(0, 10) }]);
+            }}
+            onDelete={(id) => setEmployeeList(list => list.filter(e => e.id !== id))}
+          />
+        );
       case 'admin-vehicles':
         return <AdminVehiclesPage assignments={assignments} onNavigate={navigate} />;
       case 'admin-structures':
@@ -539,6 +555,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
     category: 'car' as 'car' | 'bus',
     type: '',
     registration: '',
+    gps: '',
     capacity: 5,
     status: 'disponible' as 'disponible' | 'affecte' | 'maintenance' | 'indisponible',
     lastInspection: '',
@@ -553,7 +570,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
 
   function openCreate() {
     setEditingId(null);
-    setForm({ brand: '', model: '', category: 'car', type: '', registration: '', capacity: 5, status: 'disponible', lastInspection: '', nextInspection: '' });
+    setForm({ brand: '', model: '', category: 'car', type: '', registration: '', gps: '', capacity: 5, status: 'disponible', lastInspection: '', nextInspection: '' });
     setErrors({});
     setShowForm(true);
   }
@@ -568,6 +585,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
       category: v.category,
       type: v.type,
       registration: v.registration,
+      gps: v.gps,
       capacity: v.capacity,
       status: v.status,
       lastInspection: v.lastInspection,
@@ -582,12 +600,18 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
     setVehicleList(list => list.map(v => v.id === id ? { ...v, status } : v));
   }
 
+  function handleDeleteVehicle(id: string) {
+    setVehicleList(list => list.filter(v => v.id !== id));
+    setDetailId(null);
+  }
+
   function handleSave() {
     const e: Record<string, string> = {};
     if (!form.brand.trim()) e.brand = 'La marque est requise.';
     if (!form.model.trim()) e.model = 'Le modèle est requis.';
     if (!form.type.trim()) e.type = 'Le type est requis.';
     if (!form.registration.trim()) e.registration = 'L\'immatriculation est requise.';
+    if (!form.gps.trim()) e.gps = 'L\'identifiant GPS est requis.';
     if (!form.lastInspection) e.lastInspection = 'La dernière inspection est requise.';
     if (!form.nextInspection) e.nextInspection = 'La prochaine inspection est requise.';
     if (Object.keys(e).length) { setErrors(e); return; }
@@ -610,7 +634,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
   const vQuery = search.trim().toLowerCase();
   const filteredVehicles = vehicleList.filter(v =>
     (typeFilter === 'all' || v.type === typeFilter) &&
-    (!vQuery || `${v.brand} ${v.model} ${v.registration}`.toLowerCase().includes(vQuery)),
+    (!vQuery || `${v.brand} ${v.model} ${v.registration} ${v.gps}`.toLowerCase().includes(vQuery)),
   );
 
   function currentMissionFor(vid: string) {
@@ -676,6 +700,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
             <tr className="border-b border-border bg-slate-50/80">
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Véhicule</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">Immatriculation</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">GPS</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Type</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Capacité</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Dernière inspection</th>
@@ -699,6 +724,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                   </div>
                 </td>
                 <td className="px-4 py-3.5 font-mono text-sm text-muted whitespace-nowrap">{v.registration}</td>
+                <td className="px-4 py-3.5 font-mono text-xs text-navy whitespace-nowrap">{v.gps}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-ink">{v.type}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-ink">{v.capacity} places</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-muted">{new Date(v.lastInspection).toLocaleDateString('fr-DZ')}</td>
@@ -760,6 +786,12 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                 {errors.registration && <p className="mt-1.5 text-xs text-danger">⚠ {errors.registration}</p>}
               </div>
               <div>
+                <label className="block text-sm font-medium text-ink mb-1.5">GPS / Traceur <span className="text-danger">*</span></label>
+                <input type="text" placeholder="ex. GPS-DZ-16001" className={`${inputClass('gps')} font-mono`} value={form.gps} onChange={e => setField('gps', e.target.value.toUpperCase())} />
+                {errors.gps && <p className="mt-1.5 text-xs text-danger">⚠ {errors.gps}</p>}
+                <p className="mt-1 text-[11px] text-muted">Identifiant utilisé pour le suivi du véhicule.</p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-ink mb-1.5">Capacité <span className="text-danger">*</span></label>
                 <input type="number" min="1" max="60" className={inputClass('capacity')} value={form.capacity} onChange={e => setField('capacity', parseInt(e.target.value) || 0)} />
               </div>
@@ -801,6 +833,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
           assignment={detailAssignment}
           onClose={() => setDetailId(null)}
           onStatusChange={setVehicleStatus}
+          onDelete={handleDeleteVehicle}
         />
       )}
     </div>

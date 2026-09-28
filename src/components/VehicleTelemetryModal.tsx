@@ -38,6 +38,7 @@ interface Props {
   assignment: { mission: Mission; driver: Driver | null } | null;
   onClose: () => void;
   onStatusChange: (id: string, status: Vehicle['status']) => void;
+  onDelete: (id: string) => void;
 }
 
 type Tab = 'apercu' | 'entretien' | 'carburant' | 'missions';
@@ -144,11 +145,12 @@ function MiniTooltip({ active, payload, label, suffix }: any) {
   );
 }
 
-export default function VehicleTelemetryModal({ vehicle, assignment, onClose, onStatusChange }: Props) {
+export default function VehicleTelemetryModal({ vehicle, assignment, onClose, onStatusChange, onDelete }: Props) {
   const [tab, setTab] = useState<Tab>('apercu');
   const [services, setServices] = useState<ServiceEntry[]>(() => getTelemetry(vehicle).services);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<Vehicle['status'] | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [svc, setSvc] = useState({ date: new Date().toISOString().slice(0, 10), km: '', type: 'Vidange + filtres', center: '', cost: '' });
 
   const base = useMemo(() => getTelemetry(vehicle), [vehicle]);
@@ -345,6 +347,7 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
                   { label: 'Marque', value: vehicle.brand },
                   { label: 'Modèle', value: vehicle.model },
                   { label: 'Immatriculation', value: vehicle.registration },
+                  { label: 'GPS / Traceur', value: vehicle.gps },
                   { label: 'Type', value: vehicle.type },
                   { label: 'Capacité', value: `${vehicle.capacity} places` },
                   { label: 'Identifiant', value: vehicle.id },
@@ -634,11 +637,40 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
         </div>
 
         {/* Footer */}
-        <div className="mt-4 flex items-center justify-end gap-2">
-          {dirty && (
-            <p className="mr-auto text-[11px] font-semibold text-[var(--warning)]">
-              Usure modifiée — enregistrez pour mettre à jour l'indice santé
-            </p>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          {confirmDelete ? (
+            <div className="mr-auto flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5">
+              <p className="text-xs font-semibold text-red-700">Supprimer définitivement ce véhicule ?</p>
+              <button
+                type="button"
+                onClick={() => onDelete(vehicle.id)}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+              >
+                Supprimer
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--ink-soft)]"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="mr-auto rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+              >
+                Supprimer
+              </button>
+              {dirty && (
+                <p className="text-[11px] font-semibold text-[var(--warning)]">
+                  Usure modifiée — enregistrez pour mettre à jour l'indice santé
+                </p>
+              )}
+            </>
           )}
           <button
             type="button"

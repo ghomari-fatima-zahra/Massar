@@ -6,6 +6,7 @@ import {
   Check,
   Gear,
   House,
+  IdentificationCard,
   List as Menu,
   ListChecks,
   MagnifyingGlass,
@@ -34,6 +35,7 @@ const PAGE_LABELS: Record<string, string> = {
   'new-mission': 'Nouvelle mission',
   'mission-detail': 'Détail de la mission',
   'admin-drivers': 'Conducteurs',
+  'employes': 'Employés',
   'admin-vehicles': 'Véhicules',
   'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
@@ -45,6 +47,7 @@ const navItems = [
   { id: 'admin-dashboard', label: 'Tableau de bord', icon: House },
   { id: 'fleet-missions', label: 'Missions', icon: ListChecks, badgeKey: 'pending' as const },
   { id: 'admin-drivers', label: 'Conducteurs', icon: UsersThree },
+  { id: 'employes', label: 'Employés', icon: IdentificationCard },
   { id: 'admin-vehicles', label: 'Véhicules', icon: Truck },
   { id: 'notifications', label: 'Notifications', icon: Bell, badgeKey: 'unread' as const },
 ];
