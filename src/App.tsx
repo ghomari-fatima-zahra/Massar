@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { vehicles, drivers, missions, users } from './data/mock';
-import type { Driver, MissionRoute, Status } from './data/mock';
+import type { Driver, MissionRoute, Status, AppUser } from './data/mock';
 import { Bus, Car } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -12,10 +12,11 @@ import AdminDashboard from './pages/AdminDashboard';
 import NotificationsPage from './pages/NotificationsPage';
 import ParametresPage from './pages/ParametresPage';
 import AidePage from './pages/AidePage';
+import EmployesPage from './pages/EmployesPage';
 
 type Page =
   | 'admin-dashboard' | 'fleet-missions' | 'new-mission' | 'mission-detail'
-  | 'admin-drivers' | 'admin-vehicles' | 'admin-structures' | 'notifications'
+  | 'admin-drivers' | 'employes' | 'admin-vehicles' | 'admin-structures' | 'notifications'
   | 'parametres' | 'aide';
 
 const PAGE_TITLES: Record<string, string> = {
@@ -24,6 +25,7 @@ const PAGE_TITLES: Record<string, string> = {
   'new-mission': 'Nouvelle demande',
   'mission-detail': 'Détail de la mission',
   'admin-drivers': 'Conducteurs',
+  'employes': 'Employés',
   'admin-vehicles': 'Véhicules',
   'admin-structures': 'Structures organisationnelles',
   notifications: 'Notifications',
@@ -35,6 +37,7 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
   'new-mission': 'Missions',
   'mission-detail': 'Missions',
   'admin-drivers': 'Administration',
+  'employes': 'Administration',
   'admin-vehicles': 'Administration',
   'admin-structures': 'Administration',
   parametres: 'Administration',
@@ -51,6 +54,8 @@ export default function App() {
   const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
   // Driver-pressed starts: mission status switches En attente → En cours
   const [statusOverrides, setStatusOverrides] = useState<Record<string, Status>>({});
+  // Company employees (demandeurs) — admin managed
+  const [employeeList, setEmployeeList] = useState<AppUser[]>(users);
 
   // Driver presses "Démarrer": the mission starts immediately
   function handleStartMission(missionId: string) {
@@ -205,11 +210,22 @@ export default function App() {
       case 'fleet-missions':
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
+        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} employees={employeeList} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
       case 'mission-detail':
         return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
+      case 'employes':
+        return (
+          <EmployesPage
+            employees={employeeList}
+            onAdd={(data) => {
+              const id = `U${String(employeeList.length + 1).padStart(3, '0')}`;
+              setEmployeeList(list => [...list, { ...data, id, role: 'admin', status: 'actif' as const, createdAt: new Date().toISOString().slice(0, 10) }]);
+            }}
+            onDelete={(id) => setEmployeeList(list => list.filter(e => e.id !== id))}
+          />
+        );
       case 'admin-vehicles':
         return <AdminVehiclesPage assignments={assignments} onNavigate={navigate} />;
       case 'admin-structures':
@@ -584,6 +600,11 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
     setVehicleList(list => list.map(v => v.id === id ? { ...v, status } : v));
   }
 
+  function handleDeleteVehicle(id: string) {
+    setVehicleList(list => list.filter(v => v.id !== id));
+    setDetailId(null);
+  }
+
   function handleSave() {
     const e: Record<string, string> = {};
     if (!form.brand.trim()) e.brand = 'La marque est requise.';
@@ -812,6 +833,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
           assignment={detailAssignment}
           onClose={() => setDetailId(null)}
           onStatusChange={setVehicleStatus}
+          onDelete={handleDeleteVehicle}
         />
       )}
     </div>
