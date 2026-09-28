@@ -2,10 +2,44 @@ export type Status =
   | 'brouillon' | 'en_attente' | 'validee' | 'rejetee'
   | 'affectee' | 'confirmee' | 'en_cours' | 'terminee' | 'annulee';
 
-export type Role = 'employee' | 'fleet_manager' | 'admin';
+export type Role = 'admin';
+
+export interface MissionStop {
+  id: string;
+  name: string;
+  sequence: number;
+}
+
+export interface MissionRoute {
+  roundTrip: boolean;
+  stops: MissionStop[];
+}
+
+export function makeMissionRoute(names: string[], roundTrip = false): MissionRoute {
+  const normalized = names.map(name => name.trim()).filter(Boolean);
+  const routeNames = roundTrip && normalized.length > 1 && normalized.at(-1) !== normalized[0]
+    ? [...normalized, normalized[0]]
+    : normalized;
+
+  return {
+    roundTrip,
+    stops: routeNames.map((name, index) => ({ id: `stop-${index + 1}`, name, sequence: index + 1 })),
+  };
+}
+
+export function getMissionStops(mission: Pick<Mission, 'route' | 'departure' | 'destination'>): MissionStop[] {
+  return mission.route?.stops?.length
+    ? mission.route.stops
+    : makeMissionRoute([mission.departure, mission.destination]).stops;
+}
+
+export function missionRouteSummary(mission: Pick<Mission, 'route' | 'departure' | 'destination'>): string {
+  return getMissionStops(mission).map(stop => stop.name).join(' → ');
+}
 
 export interface Mission {
   id: string;
+  demandeurId: string;
   employee: string;
   matricule: string;
   structure: string;
@@ -13,6 +47,7 @@ export interface Mission {
   object: string;
   departure: string;
   destination: string;
+  route: MissionRoute;
   departureDate: string;
   returnDate: string;
   departureTime: string;
@@ -30,7 +65,9 @@ export interface Mission {
 
 export interface Vehicle {
   id: string;
+  category: 'car' | 'bus';
   registration: string;
+  gps: string;
   brand: string;
   model: string;
   type: string;
@@ -83,11 +120,11 @@ export const STATUS_LABELS: Record<Status, string> = {
 };
 
 export const vehicles: Vehicle[] = [
-  { id: 'V001', registration: '16-12345-DZ', brand: 'Toyota', model: 'Land Cruiser', type: 'SUV', capacity: 7, status: 'disponible', lastInspection: '2026-01-10', nextInspection: '2027-01-10' },
-  { id: 'V002', registration: '16-98765-DZ', brand: 'Renault', model: 'Symbol', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-02-15', nextInspection: '2027-02-15' },
-  { id: 'V003', registration: '23-45678-DZ', brand: 'Hyundai', model: 'H1', type: 'Minibus', capacity: 12, status: 'maintenance', lastInspection: '2025-12-01', nextInspection: '2026-06-01' },
-  { id: 'V004', registration: '16-11111-DZ', brand: 'Peugeot', model: '301', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-03-01', nextInspection: '2027-03-01' },
-  { id: 'V005', registration: '31-22222-DZ', brand: 'Mercedes', model: 'Vito', type: 'Minivan', capacity: 8, status: 'disponible', lastInspection: '2026-02-20', nextInspection: '2027-02-20' },
+  { id: 'V001', category: 'car', registration: '16-12345-DZ', gps: 'GPS-DZ-16001', brand: 'Toyota', model: 'Land Cruiser', type: 'SUV', capacity: 7, status: 'disponible', lastInspection: '2026-01-10', nextInspection: '2027-01-10' },
+  { id: 'V002', category: 'car', registration: '16-98765-DZ', gps: 'GPS-DZ-16002', brand: 'Renault', model: 'Symbol', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-02-15', nextInspection: '2027-02-15' },
+  { id: 'V003', category: 'bus', registration: '23-45678-DZ', gps: 'GPS-DZ-23001', brand: 'Hyundai', model: 'H1', type: 'Minibus', capacity: 12, status: 'maintenance', lastInspection: '2025-12-01', nextInspection: '2026-06-01' },
+  { id: 'V004', category: 'car', registration: '16-11111-DZ', gps: 'GPS-DZ-16003', brand: 'Peugeot', model: '301', type: 'Berline', capacity: 5, status: 'disponible', lastInspection: '2026-03-01', nextInspection: '2027-03-01' },
+  { id: 'V005', category: 'bus', registration: '31-22222-DZ', gps: 'GPS-DZ-31001', brand: 'Mercedes', model: 'Vito', type: 'Minivan', capacity: 8, status: 'disponible', lastInspection: '2026-02-20', nextInspection: '2027-02-20' },
 ];
 
 export const drivers: Driver[] = [
@@ -100,6 +137,7 @@ export const drivers: Driver[] = [
 export const missions: Mission[] = [
   {
     id: 'M2026-001',
+    demandeurId: 'U001',
     employee: 'Mohamed Salah Benali',
     matricule: 'ALT-2341',
     structure: 'Direction Régionale Oran',
@@ -107,6 +145,7 @@ export const missions: Mission[] = [
     object: 'Réunion technique – Installation fibre optique',
     departure: 'Alger',
     destination: 'Centre Télécom Tlemcen',
+    route: makeMissionRoute(['Alger', 'Centre Télécom Tlemcen'], true),
     departureDate: '2026-03-18',
     returnDate: '2026-03-19',
     departureTime: '07:00',
@@ -121,6 +160,7 @@ export const missions: Mission[] = [
   },
   {
     id: 'M2026-002',
+    demandeurId: 'U002',
     employee: 'Fatima Zohra Khelif',
     matricule: 'ALT-1876',
     structure: 'Division Infrastructure',
@@ -128,6 +168,7 @@ export const missions: Mission[] = [
     object: 'Audit réseau cuivre – Zone Mitidja',
     departure: 'Alger',
     destination: 'Blida',
+    route: makeMissionRoute(['Alger', 'Blida']),
     departureDate: '2026-03-20',
     returnDate: '2026-03-20',
     departureTime: '08:30',
@@ -143,6 +184,7 @@ export const missions: Mission[] = [
   },
   {
     id: 'M2026-003',
+    demandeurId: 'U003',
     employee: 'Karim Meziani',
     matricule: 'ALT-3012',
     structure: 'Centre Télécom Tlemcen',
@@ -150,6 +192,7 @@ export const missions: Mission[] = [
     object: 'Formation technique FTTH – Centre Constantine',
     departure: 'Tlemcen',
     destination: 'Constantine',
+    route: makeMissionRoute(['Tlemcen', 'Constantine']),
     departureDate: '2026-03-22',
     returnDate: '2026-03-24',
     departureTime: '06:00',
@@ -165,6 +208,7 @@ export const missions: Mission[] = [
   },
   {
     id: 'M2026-004',
+    demandeurId: 'U004',
     employee: 'Amina Bouhired',
     matricule: 'ALT-0987',
     structure: 'Direction Générale',
@@ -172,6 +216,7 @@ export const missions: Mission[] = [
     object: 'Réunion de coordination – Direction Régionale Annaba',
     departure: 'Alger',
     destination: 'Annaba',
+    route: makeMissionRoute(['Alger', 'Annaba']),
     departureDate: '2026-03-15',
     returnDate: '2026-03-15',
     departureTime: '09:00',
@@ -187,6 +232,7 @@ export const missions: Mission[] = [
   },
   {
     id: 'M2026-005',
+    demandeurId: 'U001',
     employee: 'Mohamed Salah Benali',
     matricule: 'ALT-2341',
     structure: 'Direction Régionale Oran',
@@ -194,6 +240,7 @@ export const missions: Mission[] = [
     object: 'Inspection antennes – Zone Sétif',
     departure: 'Oran',
     destination: 'Sétif',
+    route: makeMissionRoute(['Oran', 'Sétif']),
     departureDate: '2026-03-05',
     returnDate: '2026-03-06',
     departureTime: '07:00',
@@ -209,6 +256,7 @@ export const missions: Mission[] = [
   },
   {
     id: 'M2026-006',
+    demandeurId: 'U003',
     employee: 'Karim Meziani',
     matricule: 'ALT-3012',
     structure: 'Centre Télécom Tlemcen',
@@ -216,6 +264,7 @@ export const missions: Mission[] = [
     object: 'Visite client – Béjaïa',
     departure: 'Tlemcen',
     destination: 'Béjaïa',
+    route: makeMissionRoute(['Tlemcen', 'Béjaïa']),
     departureDate: '2026-03-28',
     returnDate: '2026-03-29',
     departureTime: '08:00',
@@ -227,6 +276,7 @@ export const missions: Mission[] = [
   },
   {
     id: 'M2026-007',
+    demandeurId: 'U002',
     employee: 'Fatima Zohra Khelif',
     matricule: 'ALT-1876',
     structure: 'Division Infrastructure',
@@ -234,6 +284,7 @@ export const missions: Mission[] = [
     object: 'Déploiement fibre – Zone Boumerdès',
     departure: 'Alger',
     destination: 'Boumerdès',
+    route: makeMissionRoute(['Alger', 'Boumerdès']),
     departureDate: '2026-03-12',
     returnDate: '2026-03-12',
     departureTime: '08:00',
@@ -248,13 +299,13 @@ export const missions: Mission[] = [
 ];
 
 export const users: AppUser[] = [
-  { id: 'U001', name: 'Mohamed Salah Benali', email: 'ms.benali@dot.dz', matricule: 'ALT-2341', role: 'employee', structure: 'Direction Régionale Oran', status: 'actif', createdAt: '2022-06-15' },
-  { id: 'U002', name: 'Fatima Zohra Khelif', email: 'fz.khelif@dot.dz', matricule: 'ALT-1876', role: 'employee', structure: 'Division Infrastructure', status: 'actif', createdAt: '2021-09-01' },
-  { id: 'U003', name: 'Karim Meziani', email: 'k.meziani@dot.dz', matricule: 'ALT-3012', role: 'employee', structure: 'Centre Télécom Tlemcen', status: 'actif', createdAt: '2023-01-20' },
-  { id: 'U004', name: 'Amina Bouhired', email: 'a.bouhired@dot.dz', matricule: 'ALT-0987', role: 'employee', structure: 'Direction Générale', status: 'actif', createdAt: '2020-03-10' },
-  { id: 'U005', name: 'Rachid Aouad', email: 'r.aouad@dot.dz', matricule: 'ALT-0542', role: 'fleet_manager', structure: 'Direction Générale', status: 'actif', createdAt: '2019-11-05' },
+  { id: 'U001', name: 'Mohamed Salah Benali', email: 'ms.benali@dot.dz', matricule: 'ALT-2341', role: 'admin', structure: 'Direction Régionale Oran', status: 'actif', createdAt: '2022-06-15' },
+  { id: 'U002', name: 'Fatima Zohra Khelif', email: 'fz.khelif@dot.dz', matricule: 'ALT-1876', role: 'admin', structure: 'Division Infrastructure', status: 'actif', createdAt: '2021-09-01' },
+  { id: 'U003', name: 'Karim Meziani', email: 'k.meziani@dot.dz', matricule: 'ALT-3012', role: 'admin', structure: 'Centre Télécom Tlemcen', status: 'actif', createdAt: '2023-01-20' },
+  { id: 'U004', name: 'Amina Bouhired', email: 'a.bouhired@dot.dz', matricule: 'ALT-0987', role: 'admin', structure: 'Direction Générale', status: 'actif', createdAt: '2020-03-10' },
+  { id: 'U005', name: 'Rachid Aouad', email: 'r.aouad@dot.dz', matricule: 'ALT-0542', role: 'admin', structure: 'Direction Générale', status: 'actif', createdAt: '2019-11-05' },
   { id: 'U006', name: 'Nadia Ferdi', email: 'n.ferdi@dot.dz', matricule: 'ALT-0120', role: 'admin', structure: 'Direction Générale', status: 'actif', createdAt: '2018-07-22' },
-  { id: 'U007', name: 'Omar Haddad', email: 'o.haddad@dot.dz', matricule: 'ALT-4100', role: 'employee', structure: 'Direction Régionale Constantine', status: 'inactif', createdAt: '2021-04-18' },
+  { id: 'U007', name: 'Omar Haddad', email: 'o.haddad@dot.dz', matricule: 'ALT-4100', role: 'admin', structure: 'Direction Régionale Constantine', status: 'inactif', createdAt: '2021-04-18' },
 ];
 
 export const notifications: Notification[] = [
@@ -264,10 +315,9 @@ export const notifications: Notification[] = [
   { id: 'N004', title: 'Permis expirant bientôt', body: 'Le permis du conducteur Ibrahim Salhi expire le 20/11/2026.', type: 'warning', read: true, createdAt: '2026-03-12T08:00:00' },
   { id: 'N005', title: 'Inspection technique requise', body: 'Le véhicule Hyundai H1 (23-45678-DZ) doit être présenté à l\'inspection.', type: 'warning', read: true, createdAt: '2026-03-11T16:00:00' },
   { id: 'N006', title: 'Mission en cours', body: 'La mission M2026-004 vers Annaba est maintenant en cours.', type: 'info', read: true, createdAt: '2026-03-15T09:05:00' },
+  { id: 'N007', title: 'Maintenance véhicule proche', body: 'La prochaine inspection du Toyota Land Cruiser (16-12345-DZ) arrive dans 30 jours.', type: 'warning', read: false, createdAt: '2026-03-16T08:00:00' },
 ];
 
 export const currentUsers: Record<Role, AppUser> = {
-  employee: users[0],
-  fleet_manager: users[4],
   admin: users[5],
 };

@@ -4,7 +4,7 @@ import { currentUsers } from '../data/mock';
 const FAQS = [
   {
     q: 'Comment créer une mission ?',
-    a: "Ouvrez « Nouvelle demande », renseignez l'objet, le départ, la destination et les dates, puis choisissez un conducteur et un véhicule disponibles dans la section Affectation. La mission est créée avec le statut En attente, véhicule déjà précisé.",
+    a: "Ouvrez « Nouvelle demande », choisissez le demandeur dans la liste des employés, renseignez le départ, la destination et ajoutez les étapes intermédiaires nécessaires. Activez « Mission aller-retour » pour revenir automatiquement au point de départ. La mission est créée avec le statut En attente.",
   },
   {
     q: 'Comment une mission démarre-t-elle ?',
@@ -24,7 +24,7 @@ const FAQS = [
   },
   {
     q: 'La carte ne montre pas ma mission, que faire ?',
-    a: "Les missions Alger → Blida affichent un aperçu statique en attendant la carte temps réel du backend. Les autres trajets utilisent la carte interactive limitée à l'Algérie.",
+    a: "Avec VITE_GOOGLE_MAPS_API_KEY configurée, chaque mission affiche un itinéraire Google Maps interactif avec ses étapes, sa distance et sa durée. Sans clé, le prototype conserve une carte de démonstration locale.",
   },
 ];
 

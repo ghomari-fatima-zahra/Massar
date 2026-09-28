@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function EmployeeDashboard({ onNavigate }: Props) {
-  const user = currentUsers['employee'];
+  const user = currentUsers['admin'];
   const myMissions = missions.filter(m => m.matricule === user.matricule);
 
   const stats = {

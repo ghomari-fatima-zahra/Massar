@@ -1,129 +1,227 @@
 import { useState } from 'react';
-import Logo from '../components/Logo';
 
 interface Props {
   onLogin: () => void;
 }
 
+function UserIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.4" />
+      <path d="M5.5 19c.7-3.1 3.1-4.8 6.5-4.8s5.8 1.7 6.5 4.8" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5.5" y="10.2" width="13" height="9.5" rx="2" />
+      <path d="M8.2 10.2V7.8a3.8 3.8 0 0 1 7.6 0v2.4" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.5 12h14" />
+      <path d="m13 6.5 5.5 5.5-5.5 5.5" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m6.5 12.5 3.5 3.5 7.5-8" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 8v4.5M12 16h.01" />
+    </svg>
+  );
+}
+
 export default function LoginPage({ onLogin }: Props) {
   const [email, setEmail] = useState('n.ferdi@dot.dz');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email || !password) { setError('Veuillez renseigner tous les champs.'); return; }
+    if (!email || !password) {
+      setError('Veuillez renseigner votre identifiant et votre mot de passe.');
+      return;
+    }
+
     setError('');
     setLoading(true);
-    setTimeout(() => { setLoading(false); onLogin(); }, 800);
+    window.setTimeout(() => {
+      setLoading(false);
+      onLogin();
+    }, 800);
+  }
+
+  function handleForgotPassword() {
+    setForgotSent(true);
+    setError('');
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#F8FAFC' }}>
-      {/* Left panel */}
-      <div className="hidden lg:flex flex-col w-[480px] flex-shrink-0" style={{ background: '#063F5E' }}>
-        <div className="px-10 pt-12">
-          <Logo />
-        </div>
-        <div className="flex-1 flex flex-col justify-center px-10 pb-16">
-          <h2 className="text-white text-3xl font-bold leading-snug mb-3">
-            Gestion des missions<br />et de la flotte
-          </h2>
-          <p className="text-white/50 text-base leading-relaxed">
-            Plateforme interne de gestion des déplacements professionnels et des véhicules de service — DG Algérie Télécom.
+    <main className="login-shell">
+      <section className="login-visual" aria-label="Présentation de Massar">
+        <div className="login-visual-grid" />
+        <div className="login-orb login-orb-one" />
+        <div className="login-orb login-orb-two" />
+
+        <header className="login-brand-row">
+          <div className="login-brand-lockup">
+            <div className="login-supplied-logo" aria-hidden="true">
+              <img src="/logo-size-variations.png" alt="" />
+            </div>
+            <div>
+              <p className="login-brand-name">Massar</p>
+            </div>
+          </div>
+          <div className="login-org-pill">
+            <span className="login-org-dot" />
+            DG
+          </div>
+        </header>
+
+        <div className="login-visual-content">
+          <p className="login-kicker"><span /> Plateforme opérationnelle</p>
+          <h1>
+            Chaque mission,
+            <br />
+            <em>sur la bonne voie.</em>
+          </h1>
+          <p className="login-visual-description">
+            Pilotez les déplacements professionnels, les véhicules et les équipes depuis un espace unique.
           </p>
-          <div className="mt-12 space-y-4">
-            {[
-              { label: 'Pilotage centralisé', desc: 'Toutes les missions et ressources en un seul endroit' },
-              { label: 'Validation rapide', desc: 'Circuit d\'approbation structuré et traçable' },
-              { label: 'Affectation intelligente', desc: 'Gestion optimisée des véhicules et conducteurs' },
-            ].map(f => (
-              <div key={f.label} className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-orange flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-white text-sm font-semibold">{f.label}</p>
-                  <p className="text-white/45 text-sm">{f.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="px-10 pb-8">
-          <p className="text-white/25 text-xs">DG · Algérie Télécom · Accès administrateur</p>
-        </div>
-      </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-md">
-          <div className="lg:hidden mb-8 flex justify-center">
-            <div className="px-6 py-4 rounded-2xl" style={{ background: '#063F5E' }}>
-              <Logo />
+        </div>
+
+        <footer className="login-visual-footer">
+          <span>Une seule route. Des missions mieux orchestrées.</span>
+          <span className="login-footer-status"><i /> Système opérationnel</span>
+        </footer>
+      </section>
+
+      <section className="login-panel">
+        <div className="login-panel-inner">
+          <div className="login-mobile-brand">
+            <div className="login-supplied-logo" aria-hidden="true">
+              <img src="/logo-size-variations.png" alt="" />
+            </div>
+            <div>
+              <p className="login-brand-name">Massar</p>
             </div>
           </div>
 
-          <h2 className="text-ink text-2xl font-bold mb-1">Connexion</h2>
-          <p className="text-muted text-sm mb-8">Espace administrateur Massar Fleet</p>
+          <div className="login-institution-lockup">
+            <img src="/logo-algerie-telecom.svg" alt="Algérie Télécom" />
+            <span>ESPACE INTERNE</span>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-ink mb-1.5">Adresse e-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="prenom.nom@dot.dz"
-                className="w-full px-4 py-2.5 rounded-lg border border-border bg-white text-ink text-sm placeholder:text-muted/60 focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 transition-all"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-ink">Mot de passe</label>
-                <button type="button" className="text-xs text-navy hover:underline">Mot de passe oublié ?</button>
+          <div className="login-form-header">
+            <span className="login-access-badge"><i /> Accès sécurisé</span>
+            <h2>Bienvenue sur<br /><strong>Massar</strong></h2>
+            <p>Connectez-vous pour accéder à votre espace de gestion.</p>
+          </div>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-field">
+              <label htmlFor="login-email">Identifiant professionnel</label>
+              <div className="login-input-wrap">
+                <UserIcon />
+                <input
+                  id="login-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="prenom.nom@dot.dz"
+                  autoComplete="username"
+                />
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-2.5 rounded-lg border border-border bg-white text-ink text-sm placeholder:text-muted/60 focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 transition-all"
-              />
             </div>
+
+            <div className="login-field">
+              <div className="login-label-row">
+                <label htmlFor="login-password">Mot de passe</label>
+                <button type="button" onClick={handleForgotPassword}>Mot de passe oublié ?</button>
+              </div>
+              <div className="login-input-wrap">
+                <LockIcon />
+                <input
+                  id="login-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="Votre mot de passe"
+                  autoComplete="current-password"
+                />
+              </div>
+            </div>
+
+            <div className="login-options">
+              <label className="login-remember">
+                <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                <span className="login-checkbox"><CheckIcon /></span>
+                <span>Se souvenir de moi</span>
+              </label>
+              <span className="login-session"><LockIcon /> Session privée</span>
+            </div>
+
+            {forgotSent && (
+              <p className="login-notice" role="status">
+                Un lien de réinitialisation sera envoyé à votre adresse professionnelle.
+              </p>
+            )}
 
             {error && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-danger-bg rounded-lg">
-                <svg className="w-4 h-4 text-danger flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
-                </svg>
-                <p className="text-danger text-sm">{error}</p>
+              <div className="login-error" role="alert">
+                <AlertIcon />
+                <p>{error}</p>
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-navy hover:bg-navy-dark text-white font-semibold py-2.5 rounded-lg transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-            >
+            <button className="login-submit" type="submit" disabled={loading}>
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  Connexion en cours…
-                </span>
-              ) : 'Se connecter'}
+                <span className="login-loading"><span /> Connexion en cours…</span>
+              ) : (
+                <span>Se connecter <ArrowIcon /></span>
+              )}
             </button>
           </form>
 
-          <p className="text-center text-muted text-xs mt-8">© 2026 Algérie Télécom · DG – Tous droits réservés</p>
+          <div className="login-divider"><span>ACCÈS RÉSERVÉ AU PERSONNEL</span></div>
+
+          <p className="login-support">
+            Besoin d'aide ? <button type="button">Contacter le support informatique</button>
+          </p>
+
+          <footer className="login-panel-footer">
+            <span>© 2026 Algérie Télécom · DG</span>
+            <span>Version 1.0.0</span>
+          </footer>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

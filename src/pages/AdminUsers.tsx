@@ -1,26 +1,22 @@
 import { useState } from 'react';
 import { users } from '../data/mock';
-import type { AppUser, Role } from '../data/mock';
+import type { AppUser } from '../data/mock';
 
 interface Props {
   onNavigate: (page: string) => void;
 }
 
-const ROLE_LABELS: Record<Role, string> = {
-  employee: 'Employé',
-  fleet_manager: 'Resp. Flotte',
+const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrateur',
 };
 
-export default function AdminUsers({ onNavigate }: Props) {
+export default function AdminUsers({ onNavigate: _onNavigate }: Props) {
   const [search, setSearch] = useState('');
-  const [filterRole, setFilterRole] = useState<Role | 'all'>('all');
   const [showModal, setShowModal] = useState(false);
   const [deleteUser, setDeleteUser] = useState<AppUser | null>(null);
   const [editUser, setEditUser] = useState<AppUser | null>(null);
 
   const filtered = users.filter(u => {
-    if (filterRole !== 'all' && u.role !== filterRole) return false;
     if (search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase()) && !u.matricule.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -35,12 +31,6 @@ export default function AdminUsers({ onNavigate }: Props) {
           </svg>
           <input type="text" placeholder="Nom, e-mail, matricule…" className="w-full pl-9 pr-4 py-2 rounded-lg border border-border text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:border-navy bg-white" value={search} onChange={e => setSearch(e.target.value)}/>
         </div>
-        <select value={filterRole} onChange={e => setFilterRole(e.target.value as Role | 'all')} className="px-3 py-2 rounded-lg border border-border text-sm text-ink bg-white focus:outline-none focus:border-navy">
-          <option value="all">Tous les rôles</option>
-          <option value="employee">Employé</option>
-          <option value="fleet_manager">Resp. Flotte</option>
-          <option value="admin">Administrateur</option>
-        </select>
         <button onClick={() => setShowModal(true)} className="ml-auto flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
           Nouvel utilisateur
@@ -52,8 +42,8 @@ export default function AdminUsers({ onNavigate }: Props) {
         {[
           { label: 'Total', value: users.length, color: 'text-ink' },
           { label: 'Actifs', value: users.filter(u => u.status === 'actif').length, color: 'text-success' },
-          { label: 'Employés', value: users.filter(u => u.role === 'employee').length, color: 'text-navy' },
-          { label: 'Gestionnaires', value: users.filter(u => u.role !== 'employee').length, color: 'text-orange' },
+          { label: 'Administrateurs', value: users.filter(u => u.role === 'admin').length, color: 'text-navy' },
+          { label: 'Inactifs', value: users.filter(u => u.status === 'inactif').length, color: 'text-muted' },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-xl border border-border shadow-sm p-4 text-center">
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -93,11 +83,7 @@ export default function AdminUsers({ onNavigate }: Props) {
                 <td className="px-5 py-3.5 font-mono text-xs text-muted">{u.matricule}</td>
                 <td className="px-5 py-3.5 text-ink text-sm">{u.structure}</td>
                 <td className="px-5 py-3.5">
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                    u.role === 'admin' ? 'bg-[#EDE9FE] text-[#6D28D9]' :
-                    u.role === 'fleet_manager' ? 'bg-navy-light text-navy' :
-                    'bg-slate-100 text-slate-600'
-                  }`}>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#EDE9FE] text-[#6D28D9]">
                     {ROLE_LABELS[u.role]}
                   </span>
                 </td>
@@ -154,12 +140,8 @@ export default function AdminUsers({ onNavigate }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-ink mb-1.5">Rôle <span className="text-danger">*</span></label>
-                  <select className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm text-ink focus:outline-none focus:border-navy">
-                    <option>Employé</option>
-                    <option>Resp. Flotte</option>
-                    <option>Administrateur</option>
-                  </select>
+                  <label className="block text-sm font-medium text-ink mb-1.5">Rôle</label>
+                  <div className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm text-ink bg-slate-50 font-medium">Administrateur</div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-ink mb-1.5">Structure <span className="text-danger">*</span></label>

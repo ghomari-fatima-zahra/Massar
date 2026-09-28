@@ -345,6 +345,7 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
                   { label: 'Marque', value: vehicle.brand },
                   { label: 'Modèle', value: vehicle.model },
                   { label: 'Immatriculation', value: vehicle.registration },
+                  { label: 'GPS / Traceur', value: vehicle.gps },
                   { label: 'Type', value: vehicle.type },
                   { label: 'Capacité', value: `${vehicle.capacity} places` },
                   { label: 'Identifiant', value: vehicle.id },

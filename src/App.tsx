@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { vehicles, drivers, missions } from './data/mock';
-import type { Driver, Status } from './data/mock';
+import { vehicles, drivers, missions, users } from './data/mock';
+import type { Driver, MissionRoute, Status } from './data/mock';
 import { Bus, Car } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -41,9 +41,10 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
 };
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('admin-dashboard');
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
+  const [editingMissionId, setEditingMissionId] = useState<string | undefined>();
   const [fleetFilter, setFleetFilter] = useState<string>('all');
   const [history, setHistory] = useState<Page[]>([]);
   // Admin assignments at creation: mission starts with driver+vehicle assigned
@@ -60,11 +61,21 @@ export default function App() {
     setStatusOverrides(o => ({ ...o, [missionId]: 'en_cours' }));
   }
 
+  function handleCancelMission(missionId: string) {
+    const mission = missions.find(item => item.id === missionId);
+    if (!mission || ['terminee', 'annulee'].includes(mission.status)) return;
+    setStatusOverrides(o => ({ ...o, [missionId]: 'annulee' }));
+  }
+
   function handleSubmitMission(data: {
+    missionId?: string;
+    saveAsDraft: boolean;
+    demandeurId: string;
     type: string;
     object: string;
     departure: string;
     destination: string;
+    route: MissionRoute;
     departureDate: string;
     departureTime: string;
     returnDate: string;
@@ -74,33 +85,83 @@ export default function App() {
     assignedVehicleId: string;
     notes: string;
   }) {
-    // Create new mission (vehicle + driver always assigned at creation)
     const assignedVehicle = vehicles.find(v => v.id === data.assignedVehicleId);
+    const demandeur = users.find(u => u.id === data.demandeurId) ?? users.find(u => u.status === 'actif');
+
+    if (data.missionId) {
+      const index = missions.findIndex(mission => mission.id === data.missionId);
+      if (index === -1) return;
+      const existing = missions[index];
+      missions[index] = {
+        ...existing,
+        demandeurId: demandeur?.id ?? data.demandeurId,
+        employee: demandeur?.name ?? existing.employee,
+        matricule: demandeur?.matricule ?? existing.matricule,
+        structure: demandeur?.structure ?? existing.structure,
+        type: data.type as 'interne' | 'externe',
+        object: data.object,
+        departure: data.departure,
+        destination: data.destination,
+        route: data.route,
+        departureDate: data.departureDate,
+        returnDate: data.returnDate,
+        departureTime: data.departureTime,
+        returnTime: data.returnTime,
+        passengers: data.passengers,
+        vehicleNeeded: Boolean(data.assignedVehicleId),
+        vehicleType: assignedVehicle?.type ?? '',
+        status: data.saveAsDraft ? 'brouillon' : 'en_attente',
+        vehicleId: data.assignedVehicleId || undefined,
+        driverId: data.assignedDriverId || undefined,
+        validatedBy: undefined,
+        rejectionReason: undefined,
+      };
+      setAssignments(current => {
+        const next = { ...current };
+        if (data.assignedVehicleId && data.assignedDriverId) {
+          next[data.missionId!] = { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId };
+        } else {
+          delete next[data.missionId!];
+        }
+        return next;
+      });
+      setStatusOverrides(current => {
+        const next = { ...current };
+        delete next[data.missionId!];
+        return next;
+      });
+      return;
+    }
+
+    // A newly saved mission is either a real draft or pending, never already in progress.
     const newId = `M${new Date().getFullYear()}-${String(missions.length + 1).padStart(3, '0')}`;
     const newMission = {
       id: newId,
-      employee: 'Nadia Ferdi', // current user
-      matricule: 'ALT-0120',
-      structure: 'Direction Générale',
+      demandeurId: demandeur?.id ?? data.demandeurId,
+      employee: demandeur?.name ?? 'Employé non renseigné',
+      matricule: demandeur?.matricule ?? '—',
+      structure: demandeur?.structure ?? '—',
       type: data.type as 'interne' | 'externe',
       object: data.object,
       departure: data.departure,
       destination: data.destination,
+      route: data.route,
       departureDate: data.departureDate,
       returnDate: data.returnDate,
       departureTime: data.departureTime,
       returnTime: data.returnTime,
       passengers: data.passengers,
-      vehicleNeeded: true,
+      vehicleNeeded: Boolean(data.assignedVehicleId),
       vehicleType: assignedVehicle?.type ?? '',
-      status: 'en_attente' as const,
-      vehicleId: data.assignedVehicleId,
-      driverId: data.assignedDriverId,
+      status: (data.saveAsDraft ? 'brouillon' : 'en_attente') as Status,
+      vehicleId: data.assignedVehicleId || undefined,
+      driverId: data.assignedDriverId || undefined,
       createdAt: new Date().toISOString().split('T')[0],
     };
     missions.push(newMission);
-    // Save assignment
-    setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
+    if (data.assignedVehicleId && data.assignedDriverId) {
+      setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
+    }
   }
 
   function handleLogin() {
@@ -122,6 +183,7 @@ export default function App() {
     setHistory((h) => [...h.slice(-19), currentPage]);
     setCurrentPage(next);
     if (next === 'mission-detail' && id) setSelectedMissionId(id);
+    if (next === 'new-mission') setEditingMissionId(id);
     if (next === 'fleet-missions') setFleetFilter(id ?? 'all');
   }
 
@@ -143,9 +205,9 @@ export default function App() {
       case 'fleet-missions':
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
+        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
       case 'mission-detail':
-        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} />;
+        return <MissionDetail missionId={selectedMissionId || 'M2026-001'} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
       case 'admin-drivers':
         return <AdminDriversPage assignments={assignments} />;
       case 'admin-vehicles':
@@ -474,8 +536,10 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
   const [form, setForm] = useState({
     brand: '',
     model: '',
+    category: 'car' as 'car' | 'bus',
     type: '',
     registration: '',
+    gps: '',
     capacity: 5,
     status: 'disponible' as 'disponible' | 'affecte' | 'maintenance' | 'indisponible',
     lastInspection: '',
@@ -490,7 +554,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
 
   function openCreate() {
     setEditingId(null);
-    setForm({ brand: '', model: '', type: '', registration: '', capacity: 5, status: 'disponible', lastInspection: '', nextInspection: '' });
+    setForm({ brand: '', model: '', category: 'car', type: '', registration: '', gps: '', capacity: 5, status: 'disponible', lastInspection: '', nextInspection: '' });
     setErrors({});
     setShowForm(true);
   }
@@ -502,8 +566,10 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
     setForm({
       brand: v.brand,
       model: v.model,
+      category: v.category,
       type: v.type,
       registration: v.registration,
+      gps: v.gps,
       capacity: v.capacity,
       status: v.status,
       lastInspection: v.lastInspection,
@@ -524,6 +590,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
     if (!form.model.trim()) e.model = 'Le modèle est requis.';
     if (!form.type.trim()) e.type = 'Le type est requis.';
     if (!form.registration.trim()) e.registration = 'L\'immatriculation est requise.';
+    if (!form.gps.trim()) e.gps = 'L\'identifiant GPS est requis.';
     if (!form.lastInspection) e.lastInspection = 'La dernière inspection est requise.';
     if (!form.nextInspection) e.nextInspection = 'La prochaine inspection est requise.';
     if (Object.keys(e).length) { setErrors(e); return; }
@@ -546,7 +613,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
   const vQuery = search.trim().toLowerCase();
   const filteredVehicles = vehicleList.filter(v =>
     (typeFilter === 'all' || v.type === typeFilter) &&
-    (!vQuery || `${v.brand} ${v.model} ${v.registration}`.toLowerCase().includes(vQuery)),
+    (!vQuery || `${v.brand} ${v.model} ${v.registration} ${v.gps}`.toLowerCase().includes(vQuery)),
   );
 
   function currentMissionFor(vid: string) {
@@ -612,6 +679,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
             <tr className="border-b border-border bg-slate-50/80">
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Véhicule</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">Immatriculation</th>
+              <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">GPS</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Type</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Capacité</th>
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Dernière inspection</th>
@@ -635,6 +703,7 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                   </div>
                 </td>
                 <td className="px-4 py-3.5 font-mono text-sm text-muted whitespace-nowrap">{v.registration}</td>
+                <td className="px-4 py-3.5 font-mono text-xs text-navy whitespace-nowrap">{v.gps}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-ink">{v.type}</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-ink">{v.capacity} places</td>
                 <td className="px-4 py-3.5 whitespace-nowrap text-muted">{new Date(v.lastInspection).toLocaleDateString('fr-DZ')}</td>
@@ -679,6 +748,13 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                 {errors.model && <p className="mt-1.5 text-xs text-danger">⚠ {errors.model}</p>}
               </div>
               <div>
+                <label className="block text-sm font-medium text-ink mb-1.5">Catégorie <span className="text-danger">*</span></label>
+                <select className={inputClass('category')} value={form.category} onChange={e => setField('category', e.target.value as 'car' | 'bus')}>
+                  <option value="car">Voiture</option>
+                  <option value="bus">Bus</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-ink mb-1.5">Type <span className="text-danger">*</span></label>
                 <input type="text" placeholder="ex. SUV" className={inputClass('type')} value={form.type} onChange={e => setField('type', e.target.value)} />
                 {errors.type && <p className="mt-1.5 text-xs text-danger">⚠ {errors.type}</p>}
@@ -687,6 +763,12 @@ function AdminVehiclesPage({ onNavigate: _onNavigate, assignments }: { onNavigat
                 <label className="block text-sm font-medium text-ink mb-1.5">Immatriculation <span className="text-danger">*</span></label>
                 <input type="text" placeholder="ex. 16-12345-DZ" className={`${inputClass('registration')} font-mono`} value={form.registration} onChange={e => setField('registration', e.target.value.toUpperCase())} />
                 {errors.registration && <p className="mt-1.5 text-xs text-danger">⚠ {errors.registration}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1.5">GPS / Traceur <span className="text-danger">*</span></label>
+                <input type="text" placeholder="ex. GPS-DZ-16001" className={`${inputClass('gps')} font-mono`} value={form.gps} onChange={e => setField('gps', e.target.value.toUpperCase())} />
+                {errors.gps && <p className="mt-1.5 text-xs text-danger">⚠ {errors.gps}</p>}
+                <p className="mt-1 text-[11px] text-muted">Identifiant utilisé pour le suivi du véhicule.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-ink mb-1.5">Capacité <span className="text-danger">*</span></label>

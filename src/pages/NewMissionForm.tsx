@@ -1,15 +1,40 @@
 import { useState } from 'react';
-import { vehicles, drivers } from '../data/mock';
-import type { Vehicle, Driver } from '../data/mock';
+import { getMissionStops, makeMissionRoute, vehicles, drivers, users } from '../data/mock';
+import type { Mission, MissionRoute } from '../data/mock';
+
+interface FormState {
+  demandeurId: string;
+  demandeurQuery: string;
+  type: string;
+  object: string;
+  departure: string;
+  destination: string;
+  intermediateStops: string[];
+  roundTrip: boolean;
+  departureDate: string;
+  departureTime: string;
+  returnDate: string;
+  returnTime: string;
+  passengers: number;
+  notes: string;
+  assignedDriverId: string;
+  vehicleCategory: '' | 'car' | 'bus';
+  assignedVehicleId: string;
+}
 
 interface Props {
   onNavigate: (page: string) => void;
   onBack: () => void;
+  initialMission?: Mission | null;
   onSubmitMission?: (data: {
+    missionId?: string;
+    saveAsDraft: boolean;
+    demandeurId: string;
     type: string;
     object: string;
     departure: string;
     destination: string;
+    route: MissionRoute;
     departureDate: string;
     departureTime: string;
     returnDate: string;
@@ -21,40 +46,48 @@ interface Props {
   }) => void;
 }
 
-export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: Props) {
-  interface FormState {
-    type: string;
-    object: string;
-    departure: string;
-    destination: string;
-    departureDate: string;
-    departureTime: string;
-    returnDate: string;
-    returnTime: string;
-    passengers: number;
-    notes: string;
-    assignedDriverId: string;
-    assignedVehicleId: string;
+function missionToForm(mission?: Mission | null): FormState {
+  if (!mission) {
+    return {
+      demandeurId: '', demandeurQuery: '', type: 'externe', object: '', departure: '', destination: '',
+      intermediateStops: [], roundTrip: false, departureDate: '', departureTime: '08:00', returnDate: '',
+      returnTime: '', passengers: 1, notes: '', assignedDriverId: '', vehicleCategory: '', assignedVehicleId: '',
+    };
   }
 
-  const [form, setForm] = useState<FormState>({
-    type: 'externe',
-    object: '',
-    departure: '',
-    destination: '',
-    departureDate: '',
-    departureTime: '08:00',
-    returnDate: '',
-    returnTime: '',
-    passengers: 1,
+  const stops = getMissionStops(mission).map(stop => stop.name);
+  const routeStops = mission.route.roundTrip && stops.length > 1 && stops.at(-1) === stops[0]
+    ? stops.slice(0, -1)
+    : stops;
+  const assignedVehicle = mission.vehicleId ? vehicles.find(vehicle => vehicle.id === mission.vehicleId) : undefined;
+
+  return {
+    demandeurId: mission.demandeurId,
+    demandeurQuery: mission.employee,
+    type: mission.type,
+    object: mission.object,
+    departure: routeStops[0] ?? mission.departure,
+    destination: routeStops.at(-1) ?? mission.destination,
+    intermediateStops: routeStops.slice(1, -1),
+    roundTrip: Boolean(mission.route.roundTrip),
+    departureDate: mission.departureDate,
+    departureTime: mission.departureTime,
+    returnDate: mission.returnDate,
+    returnTime: mission.returnTime,
+    passengers: mission.passengers,
     notes: '',
-    // Conducteur + véhicule toujours affectés à la création
-    assignedDriverId: '',
-    assignedVehicleId: '',
-  });
+    assignedDriverId: mission.driverId ?? '',
+    vehicleCategory: assignedVehicle?.category ?? '',
+    assignedVehicleId: mission.vehicleId ?? '',
+  };
+}
+
+export default function NewMissionForm({ onNavigate, onBack, initialMission, onSubmitMission }: Props) {
+  const [form, setForm] = useState<FormState>(() => missionToForm(initialMission));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [draft, setDraft] = useState(false);
+  const [demandeurSuggestionsOpen, setDemandeurSuggestionsOpen] = useState(false);
 
   function set(field: string, val: unknown) {
     setForm(f => ({ ...f, [field]: val }));
@@ -63,12 +96,15 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
 
   function validate() {
     const e: Record<string, string> = {};
+    if (!form.demandeurId) e.demandeurId = 'Choisissez le demandeur de la mission.';
     if (!form.object.trim()) e.object = "L'objet est requis.";
     if (!form.departure.trim()) e.departure = 'Le lieu de départ est requis.';
     if (!form.destination.trim()) e.destination = 'La destination est requise.';
+    if (form.intermediateStops.some(stop => !stop.trim())) e.intermediateStops = 'Complétez ou supprimez chaque étape ajoutée.';
     if (!form.departureDate) e.departureDate = 'La date de départ est requise.';
     // La date de retour est facultative : le conducteur déclarera son arrivée.
     if (!form.assignedDriverId) e.assignedDriverId = 'Choisissez un conducteur disponible.';
+    if (!form.vehicleCategory) e.vehicleCategory = 'Choisissez d’abord voiture ou bus.';
     if (!form.assignedVehicleId) e.assignedVehicleId = 'Choisissez un véhicule disponible.';
     return e;
   }
@@ -80,9 +116,10 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     }
     setDraft(isDraft);
     setSubmitted(true);
-    if (!isDraft && onSubmitMission) {
-      const { type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes } = form;
-      onSubmitMission({ type, object, departure, destination, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
+    if (onSubmitMission) {
+      const { demandeurId, type, object, departure, destination, intermediateStops, roundTrip, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes } = form;
+      const route = makeMissionRoute([departure, ...intermediateStops, destination], roundTrip);
+      onSubmitMission({ missionId: initialMission?.id, saveAsDraft: isDraft, demandeurId, type, object, departure, destination, route, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
     }
   }
 
@@ -115,7 +152,7 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
           <button
             onClick={() => {
               setSubmitted(false);
-              setForm({ type: 'externe', object: '', departure: '', destination: '', departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, notes: '', assignedDriverId: '', assignedVehicleId: '' });
+              setForm({ demandeurId: '', demandeurQuery: '', type: 'externe', object: '', departure: '', destination: '', intermediateStops: [], roundTrip: false, departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, notes: '', assignedDriverId: '', vehicleCategory: '', assignedVehicleId: '' });
             }}
             className="px-5 py-2.5 border border-border text-ink rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
           >
@@ -147,12 +184,50 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
     <div className="max-w-3xl">
       <div className="bg-white rounded-xl border border-border shadow-sm">
         <div className="px-6 py-5 border-b border-border">
-          <h2 className="text-ink text-lg font-semibold">Nouvelle demande de mission</h2>
-          <p className="text-muted text-sm mt-0.5">Renseignez les informations de votre déplacement professionnel</p>
+          <h2 className="text-ink text-lg font-semibold">{initialMission ? 'Modifier le brouillon' : 'Nouvelle demande de mission'}</h2>
+          <p className="text-muted text-sm mt-0.5">{initialMission ? 'Complétez les informations puis soumettez la mission.' : 'Renseignez les informations de votre déplacement professionnel'}</p>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Mission de service — conducteur et véhicule choisis dans la section Affectation plus bas */}
+          {/* Demandeur */}
+          <Field label="Demandeur" error={errors.demandeurId} required>
+            <div className="relative">
+              <input
+                type="text"
+                role="combobox"
+                aria-expanded={demandeurSuggestionsOpen}
+                autoComplete="off"
+                placeholder="Saisir le nom de l'employé…"
+                value={form.demandeurQuery}
+                onFocus={() => setDemandeurSuggestionsOpen(true)}
+                onBlur={() => window.setTimeout(() => setDemandeurSuggestionsOpen(false), 120)}
+                onChange={e => { set('demandeurQuery', e.target.value); set('demandeurId', ''); }}
+                className={inputClass('demandeurId')}
+              />
+              {demandeurSuggestionsOpen && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-white p-1 shadow-xl">
+                  {users
+                    .filter(u => u.status === 'actif')
+                    .filter(employee => {
+                      const query = form.demandeurQuery.trim().toLowerCase();
+                      return !query || `${employee.name} ${employee.matricule} ${employee.structure}`.toLowerCase().includes(query);
+                    })
+                    .map(employee => (
+                      <button
+                        key={employee.id}
+                        type="button"
+                        onMouseDown={() => { set('demandeurId', employee.id); set('demandeurQuery', employee.name); setDemandeurSuggestionsOpen(false); }}
+                        className="w-full rounded-md px-3 py-2 text-left hover:bg-navy-light transition-colors"
+                      >
+                        <span className="block text-sm font-semibold text-ink">{employee.name}</span>
+                        <span className="block text-[11px] text-muted">{employee.matricule} · {employee.structure}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] text-muted">Seuls les utilisateurs actifs peuvent être demandeurs.</p>
+          </Field>
 
           {/* Type */}
           <Field label="Type de mission" required>
@@ -182,6 +257,39 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
             <Field label="Destination" error={errors.destination} required>
               <input type="text" placeholder="ex. Oran" className={inputClass('destination')} value={form.destination} onChange={e => set('destination', e.target.value)}/>
             </Field>
+          </div>
+
+          {/* Multi-stop route */}
+          <Field label="Étapes intermédiaires" error={errors.intermediateStops} optional>
+            <div className="space-y-2">
+              {form.intermediateStops.map((stop, index) => (
+                <div key={`stop-${index}`} className="flex items-center gap-2">
+                  <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{index + 2}</span>
+                  <input
+                    type="text"
+                    placeholder={`Étape ${index + 1}, ex. Oran`}
+                    className={inputClass('intermediateStops')}
+                    value={stop}
+                    onChange={e => set('intermediateStops', form.intermediateStops.map((current, itemIndex) => itemIndex === index ? e.target.value : current))}
+                  />
+                  <button type="button" onClick={() => set('intermediateStops', form.intermediateStops.filter((_, itemIndex) => itemIndex !== index))} className="w-9 h-9 rounded-lg border border-border text-muted hover:text-danger hover:border-danger/40 transition-colors" aria-label={`Supprimer l'étape ${index + 1}`}>×</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => set('intermediateStops', [...form.intermediateStops, ''])} className="text-sm font-semibold text-navy hover:text-navy-dark transition-colors">+ Ajouter une étape</button>
+            </div>
+          </Field>
+
+          <label className="flex items-start gap-3 rounded-lg border border-border bg-slate-50/60 px-4 py-3 cursor-pointer">
+            <input type="checkbox" checked={form.roundTrip} onChange={e => set('roundTrip', e.target.checked)} className="mt-0.5 accent-[#075985]" />
+            <span>
+              <span className="block text-sm font-semibold text-ink">Mission aller-retour</span>
+              <span className="block text-xs text-muted mt-0.5">Ajoute automatiquement le départ comme dernière étape.</span>
+            </span>
+          </label>
+
+          <div className="rounded-lg border border-navy/10 bg-navy-light/40 px-4 py-3 text-sm text-navy">
+            <span className="font-semibold">Itinéraire : </span>
+            {[form.departure || 'Départ', ...form.intermediateStops.filter(Boolean), form.destination || 'Arrivée', ...(form.roundTrip ? [form.departure || 'Départ'] : [])].join(' → ')}
           </div>
 
           {/* Dates */}
@@ -223,7 +331,6 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
             <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">2. Affectation</p>
             <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
                 <div className="px-4 py-4">
-                  <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">3. Affectation</p>
                   <p className="text-muted text-xs">Choisissez le conducteur et le véhicule pour cette mission</p>
                 </div>
                 <div className="px-4 pb-4 space-y-4 border-t border-border/60 pt-4">
@@ -268,9 +375,26 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
                   {/* Vehicle selection */}
                   <div>
                     <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Véhicule</p>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {([
+                        { id: 'car' as const, label: 'Voiture', description: 'Berline, SUV' },
+                        { id: 'bus' as const, label: 'Bus', description: 'Minibus, autocar' },
+                      ]).map(category => (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => { set('vehicleCategory', category.id); set('assignedVehicleId', ''); }}
+                          className={`rounded-xl border px-3 py-2.5 text-left transition-all ${form.vehicleCategory === category.id ? 'border-navy bg-navy-light ring-1 ring-navy/20' : 'border-border hover:border-navy/40'}`}
+                        >
+                          <span className="block text-sm font-semibold text-ink">{category.label}</span>
+                          <span className="block text-[11px] text-muted">{category.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {errors.vehicleCategory && <p className="mb-2 text-xs text-danger flex items-center gap-1">⚠ {errors.vehicleCategory}</p>}
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
                       {vehicles
-                        .filter(v => v.status === 'disponible')
+                        .filter(v => v.status === 'disponible' && Boolean(form.vehicleCategory) && v.category === form.vehicleCategory)
                         .map(v => (
                           <button
                             key={v.id}
@@ -291,8 +415,9 @@ export default function NewMissionForm({ onNavigate, onBack, onSubmitMission }: 
                             )}
                           </button>
                         ))}
-                      {vehicles.filter(v => v.status === 'disponible').length === 0 && (
-                        <p className="text-muted text-sm">Aucun véhicule disponible</p>
+                      {!form.vehicleCategory && <p className="text-muted text-sm">Choisissez d’abord une catégorie de véhicule.</p>}
+                      {form.vehicleCategory && vehicles.filter(v => v.status === 'disponible' && v.category === form.vehicleCategory).length === 0 && (
+                        <p className="text-muted text-sm">Aucun véhicule disponible dans cette catégorie</p>
                       )}
                     </div>
                     {errors.assignedVehicleId && <p className="mt-1.5 text-xs text-danger flex items-center gap-1">⚠ {errors.assignedVehicleId}</p>}

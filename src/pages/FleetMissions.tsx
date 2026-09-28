@@ -1,98 +1,8 @@
 import { useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
-import { missions, vehicles, drivers } from '../data/mock';
+import MissionRouteMap, { STATUS_PROGRESS } from '../components/MissionRouteMap';
+import { getMissionStops, missionRouteSummary, missions, vehicles, drivers } from '../data/mock';
 import type { Mission, Status } from '../data/mock';
-
-// Static route images (captures Google Maps, Algérie uniquement) en attendant
-// la carte temps réel du backend. Enregistrez la capture sous
-// mission draft/public/maps/<MISSION_ID>.png
-const MISSION_MAP_IMAGES: Record<string, string> = {
-  'M2026-001': '/maps/M2026-001.png',
-  'M2026-002': '/maps/M2026-002.png',
-  'M2026-003': '/maps/M2026-003.png',
-};
-
-// Fallback: match by route (direction-insensitive, accents ignored) so that
-// newly created missions also find their preview image.
-const ROUTE_MAP_IMAGES: { a: string; b: string; src: string }[] = [
-  { a: 'oran', b: 'setif', src: '/maps/M2026-001.png' },
-  { a: 'alger', b: 'blida', src: '/maps/M2026-002.png' },
-  { a: 'tlemcen', b: 'alger', src: '/maps/M2026-003.png' },
-];
-
-function normCity(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-}
-
-function imageForMission(mission: Mission): string | undefined {
-  const byId = MISSION_MAP_IMAGES[mission.id];
-  if (byId) return byId;
-  const d = normCity(mission.departure);
-  const t = normCity(mission.destination);
-  const hit = ROUTE_MAP_IMAGES.find(
-    (r) =>
-      (d.includes(r.a) && t.includes(r.b)) ||
-      (d.includes(r.b) && t.includes(r.a)),
-  );
-  return hit?.src;
-}
-
-const STATUS_PROGRESS: Record<Status, number> = {
-  brouillon: 0, en_attente: 0.15, validee: 0.35,
-  affectee: 0.5, confirmee: 0.65, en_cours: 0.8,
-  terminee: 1, annulee: 0, rejetee: 0,
-};
-
-// Itinéraire statique : image du trajet (Algérie uniquement), sans suivi dynamique.
-// Le suivi Google Maps temps réel arrivera avec le backend.
-function StaticRouteMap({ mission }: { mission: Mission | null }) {
-  const [failed, setFailed] = useState(false);
-  const src = mission ? imageForMission(mission) : undefined;
-
-  if (mission && src && !failed) {
-    return (
-      <div className="relative h-full w-full overflow-hidden bg-[#E8EEF3]">
-        <img
-          src={src}
-          alt={`Itinéraire ${mission.departure} → ${mission.destination}`}
-          className="h-full w-full object-cover"
-          onError={() => setFailed(true)}
-        />
-        <span className="absolute bottom-2 right-2 rounded-md bg-white/90 px-2 py-1 text-[10px] font-medium text-muted shadow">
-          Aperçu statique — suivi temps réel à venir
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[var(--surface-muted)] p-6 text-center">
-      <span className="grid h-11 w-11 place-items-center rounded-full bg-[var(--surface)] text-[var(--ink-soft)] shadow-sm">
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-          <circle cx="12" cy="11" r="3" />
-        </svg>
-      </span>
-      {mission ? (
-        <>
-          <p className="text-sm font-semibold text-[var(--ink)]">
-            {mission.departure} → {mission.destination}
-          </p>
-          <p className="text-xs text-[var(--ink-muted)]">
-            Aperçu d'itinéraire à venir pour cette mission.
-          </p>
-        </>
-      ) : (
-        <p className="text-sm font-medium text-[var(--ink-soft)]">
-          Sélectionnez une mission pour afficher l'itinéraire
-        </p>
-      )}
-      <p className="text-[11px] text-[var(--ink-muted)]">
-        Suivi en direct (Google Maps, Algérie uniquement) après l'intégration backend.
-      </p>
-    </div>
-  );
-}
 
 const STAGES = ['En attente', 'En cours', 'Terminée'] as const;
 const STAGE_STATUSES: Record<string, Status> = {
@@ -101,14 +11,23 @@ const STAGE_STATUSES: Record<string, Status> = {
 };
 
 const STATUS_FILTER_LABELS: Record<string, string> = {
-  all: 'Toutes', en_attente: 'En attente',
-  en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées',
+  all: 'Toutes', brouillon: 'Brouillons', en_attente: 'En attente',
+  en_cours: 'En cours', terminee: 'Terminées', rejetee: 'Rejetées', annulee: 'Annulées',
 };
 
 const STATUS_DOT: Record<string, string> = {
   en_cours: 'bg-cyan-400', terminee: 'bg-emerald-400', en_attente: 'bg-amber-400',
   rejetee: 'bg-red-400',
   annulee: 'bg-red-400', brouillon: 'bg-slate-400',
+};
+
+type MissionSort = 'created_desc' | 'created_asc' | 'departure_asc' | 'departure_desc';
+
+const MISSION_SORT_LABELS: Record<MissionSort, string> = {
+  created_desc: 'Plus récemment créées',
+  created_asc: 'Plus anciennement créées',
+  departure_asc: 'Départ le plus proche',
+  departure_desc: 'Départ le plus lointain',
 };
 
 interface Props {
@@ -123,27 +42,38 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
   const [selectedId, setSelectedId] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<string>(initialFilter ?? 'all');
   const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<MissionSort>('created_desc');
 
-  // Effective status: session assignments and driver-started missions switch to En cours
+  // An assignment does not start a mission. The driver-start action is the
+  // only event that promotes En attente to En cours.
   const effMissions = missions.map(m => {
     const a = assignments[m.id];
-    if (a) return { ...m, status: 'en_cours' as Status, vehicleId: a.vehicleId, driverId: a.driverId };
     const override = statusOverrides[m.id];
-    return override ? { ...m, status: override } : m;
+    return {
+      ...m,
+      ...(a ? { vehicleId: a.vehicleId, driverId: a.driverId } : {}),
+      ...(override ? { status: override } : {}),
+    };
   });
 
   const filtered = effMissions.filter(m => {
     if (filterStatus !== 'all' && m.status !== filterStatus) return false;
     if (search && !m.object.toLowerCase().includes(search.toLowerCase()) &&
         !m.employee.toLowerCase().includes(search.toLowerCase()) &&
-        !m.destination.toLowerCase().includes(search.toLowerCase())) return false;
+        !missionRouteSummary(m).toLowerCase().includes(search.toLowerCase())) return false;
     return true;
+  });
+
+  const sortedMissions = [...filtered].sort((a, b) => {
+    const field = sortOrder.startsWith('created') ? 'createdAt' : 'departureDate';
+    const difference = new Date(a[field]).getTime() - new Date(b[field]).getTime();
+    return sortOrder.endsWith('desc') ? -difference : difference;
   });
 
   const selected = effMissions.find(m => m.id === selectedId) ?? null;
   const vehicle = selected?.vehicleId ? vehicles.find(v => v.id === selected!.vehicleId) : null;
   const driver = selected?.driverId ? drivers.find(d => d.id === selected!.driverId) : null;
-  const t = STATUS_PROGRESS[selected?.status as Status] ?? 0;
+  const t = selected ? (STATUS_PROGRESS[selected.status as Status] ?? 0) : 0;
 
   const counts = {
     en_cours: effMissions.filter(m => m.status === 'en_cours').length,
@@ -224,14 +154,34 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
           )}
         </div>
 
+        {/* Mission ordering */}
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="mission-sort-order"
+            className="text-[11px] font-semibold uppercase tracking-wider text-muted flex-shrink-0"
+          >
+            Trier
+          </label>
+          <select
+            id="mission-sort-order"
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value as MissionSort)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-border bg-white text-xs font-medium text-ink shadow-sm focus:outline-none focus:border-navy"
+          >
+            {Object.entries(MISSION_SORT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Mission cards */}
         <div className="flex-1 overflow-y-auto space-y-2 scrollbar-thin pr-1">
-          {filtered.length === 0 && (
+          {sortedMissions.length === 0 && (
             <div className="py-12 text-center">
               <p className="text-muted text-sm">Aucune mission trouvée</p>
             </div>
           )}
-          {filtered.map(m => {
+          {sortedMissions.map(m => {
             const isSelected = selectedId === m.id;
             return (
               <button
@@ -257,9 +207,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                   <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                   </svg>
-                  <span className="font-medium">{m.departure}</span>
-                  <span className={`px-1 ${isSelected ? 'text-white/30' : 'text-muted/40'}`}>→</span>
-                  <span>{m.destination}</span>
+                  <span className="font-medium truncate">{missionRouteSummary(m)}</span>
                 </div>
                 <div className={`flex items-center gap-1 text-[11px] ${isSelected ? 'text-white/50' : 'text-muted/70'}`}>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -295,7 +243,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                   <div className="flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2.5 shadow-lg border border-white/60 pointer-events-auto">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-navy ring-2 ring-sky-200"/>
-                      <span className="text-navy font-semibold text-sm">{selected.departure}</span>
+                      <span className="text-navy font-semibold text-sm truncate max-w-[220px]">{getMissionStops(selected)[0]?.name}</span>
                     </div>
                     <div className="flex items-center gap-1 text-muted">
                       <div className="w-6 h-px bg-slate-300"/>
@@ -306,7 +254,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 ring-2 ring-cyan-100"/>
-                      <span className="text-cyan-700 font-semibold text-sm">{selected.destination}</span>
+                      <span className="text-cyan-700 font-semibold text-sm truncate max-w-[220px]">{getMissionStops(selected).at(-1)?.name}</span>
                     </div>
                   </div>
                   <span className={`pointer-events-auto text-xs font-bold px-3 py-1.5 rounded-xl shadow-md border ${
@@ -326,7 +274,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
               )}
 
               {/* Itinerary — static image, no live tracking yet */}
-              <StaticRouteMap key={selected?.id ?? 'overview'} mission={selected} />
+              <MissionRouteMap key={selected?.id ?? 'overview'} mission={selected} />
 
               {/* No selection hint */}
               {!selected && (
@@ -403,8 +351,8 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                       {/* Trajet */}
                       <div className="flex-shrink-0">
                         <p className="text-[10px] font-semibold text-muted uppercase tracking-wide leading-none mb-0.5">Trajet</p>
-                        <p className="text-ink text-sm font-semibold leading-tight">{selected.departure}</p>
-                        <p className="text-muted text-[11px] leading-tight">→ {selected.destination}</p>
+                        <p className="text-ink text-sm font-semibold leading-tight max-w-[220px] truncate">{getMissionStops(selected)[0]?.name}</p>
+                        <p className="text-muted text-[11px] leading-tight max-w-[220px] truncate">{missionRouteSummary(selected).split(' → ').slice(1).join(' → ')}</p>
                       </div>
 
                       <div className="w-px h-10 bg-slate-100 flex-shrink-0"/>
@@ -461,7 +409,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                           onClick={() => onNavigate('mission-detail', selected.id)}
                           className="px-4 py-2 bg-navy text-white text-sm font-semibold rounded-xl hover:bg-navy-dark transition-colors whitespace-nowrap"
                         >
-                          Détails
+                          {selected.status === 'brouillon' ? 'Modifier le brouillon' : 'Détails'}
                         </button>
                         {selected.status === 'en_attente' && selected.driverId && (
                           <button

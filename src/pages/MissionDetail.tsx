@@ -1,5 +1,6 @@
 import StatusBadge from '../components/StatusBadge';
-import { missions, vehicles, drivers, STATUS_LABELS } from '../data/mock';
+import MissionRouteMap from '../components/MissionRouteMap';
+import { missionRouteSummary, missions, vehicles, drivers, STATUS_LABELS } from '../data/mock';
 import type { Status } from '../data/mock';
 
 interface Props {
@@ -8,19 +9,21 @@ interface Props {
   statusOverrides: Record<string, Status>;
   onNavigate: (page: string) => void;
   onBack: () => void;
+  onCancelMission: (missionId: string) => void;
+  onEditMission: (missionId: string) => void;
 }
 
 const STATUS_ORDER: Status[] = ['en_attente', 'en_cours', 'terminee'];
 
-export default function MissionDetail({ missionId, assignments, statusOverrides, onNavigate: _onNavigate, onBack }: Props) {
+export default function MissionDetail({ missionId, assignments, statusOverrides, onNavigate: _onNavigate, onBack, onCancelMission, onEditMission }: Props) {
   const base = missions.find(m => m.id === missionId) || missions[0];
   const a = assignments[base.id];
   const o = statusOverrides[base.id];
-  const mission = a
-    ? { ...base, status: 'en_cours' as Status, vehicleId: a.vehicleId, driverId: a.driverId }
-    : o
-      ? { ...base, status: o }
-      : base;
+  const mission = {
+    ...base,
+    ...(a ? { vehicleId: a.vehicleId, driverId: a.driverId } : {}),
+    ...(o ? { status: o } : {}),
+  };
   const vehicle = mission.vehicleId ? vehicles.find(v => v.id === mission.vehicleId) : null;
   const driver = mission.driverId ? drivers.find(d => d.id === mission.driverId) : null;
 
@@ -51,12 +54,27 @@ export default function MissionDetail({ missionId, assignments, statusOverrides,
             <StatusBadge status={mission.status as Status} />
           </div>
           <h2 className="text-ink text-xl font-bold">{mission.object}</h2>
-          <p className="text-muted text-sm mt-1">{mission.departure} → {mission.destination} · {mission.passengers} passager(s)</p>
+          <p className="text-muted text-sm mt-1">{missionRouteSummary(mission)} · {mission.passengers} passager(s)</p>
         </div>
         {['brouillon', 'en_attente'].includes(mission.status) && (
-          <button className="flex-shrink-0 px-4 py-2 border border-danger text-danger text-sm font-medium rounded-lg hover:bg-danger-bg transition-colors">
-            Annuler la mission
-          </button>
+          <div className="flex flex-wrap justify-end gap-2 flex-shrink-0">
+            {mission.status === 'brouillon' && (
+              <button
+                type="button"
+                onClick={() => onEditMission(mission.id)}
+                className="px-4 py-2 bg-navy text-white text-sm font-semibold rounded-lg hover:bg-navy-dark transition-colors"
+              >
+                Modifier le brouillon
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onCancelMission(mission.id)}
+              className="px-4 py-2 border border-danger text-danger text-sm font-medium rounded-lg hover:bg-danger-bg transition-colors"
+            >
+              Annuler la mission
+            </button>
+          </div>
         )}
       </div>
 
@@ -112,16 +130,28 @@ export default function MissionDetail({ missionId, assignments, statusOverrides,
       <div className="grid grid-cols-3 gap-5">
         {/* Mission info */}
         <div className="col-span-2 space-y-4">
+          <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+              <div>
+                <h3 className="text-ink font-semibold">Itinéraire de la mission</h3>
+                <p className="mt-0.5 text-xs text-muted">Itinéraire multi-étapes et calculé par la carte</p>
+              </div>
+              <span className="rounded-full bg-navy-light px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-navy">Carte</span>
+            </div>
+            <div className="h-[330px]">
+              <MissionRouteMap mission={mission} />
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl border border-border shadow-sm p-5">
             <h3 className="text-ink font-semibold mb-4">Informations de la mission</h3>
             <div className="grid grid-cols-2 gap-4">
               {[
                 { label: 'Type', value: mission.type === 'interne' ? 'Interne' : 'Externe' },
-                { label: 'Employé', value: mission.employee },
+                { label: 'Demandeur / employé', value: mission.employee },
                 { label: 'Matricule', value: mission.matricule },
                 { label: 'Structure', value: mission.structure },
-                { label: 'Départ', value: `${mission.departure}` },
-                { label: 'Destination', value: `${mission.destination}` },
+                { label: 'Itinéraire', value: missionRouteSummary(mission) },
                 { label: 'Date départ', value: `${new Date(mission.departureDate).toLocaleDateString('fr-DZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} à ${mission.departureTime}` },
                 { label: 'Date retour', value: mission.returnDate ? `${new Date(mission.returnDate).toLocaleDateString('fr-DZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} à ${mission.returnTime || '—'}` : 'Non renseignée — le conducteur déclarera son arrivée' },
                 { label: 'Passagers', value: `${mission.passengers} personne(s)` },

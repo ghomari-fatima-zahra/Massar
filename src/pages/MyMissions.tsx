@@ -10,7 +10,7 @@ interface Props {
 const ALL_STATUSES: Status[] = ['brouillon', 'en_attente', 'rejetee', 'en_cours', 'terminee', 'annulee'];
 
 export default function MyMissions({ onNavigate }: Props) {
-  const user = currentUsers['employee'];
+  const user = currentUsers['admin'];
   const myMissions = missions.filter(m => m.matricule === user.matricule);
   const [filterStatus, setFilterStatus] = useState<Status | 'all'>('all');
   const [filterType, setFilterType] = useState<'all' | 'interne' | 'externe'>('all');
