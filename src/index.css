@@ -472,12 +472,12 @@ h4 { font-size: 1.25rem !important; line-height: 1.25; }
   width: min(100%, 438px);
 }
 
-.login-mobile-brand { display: flex; margin-bottom: 42px; }
+.login-mobile-brand { display: flex; justify-content: center; text-align: center; margin-bottom: 42px; }
 .login-mobile-brand .login-brand-name { color: #075985; }
 
 .login-tagline {
   max-width: 360px;
-  margin: 8px 0 0;
+  margin: 8px auto 0;
   color: #64748b;
   font-size: 16px;
   line-height: 1.5;

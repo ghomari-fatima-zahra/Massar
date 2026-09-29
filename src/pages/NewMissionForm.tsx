@@ -91,7 +91,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
   const [demandeurSuggestionsOpen, setDemandeurSuggestionsOpen] = useState(false);
 
   const selectedVehicle = form.assignedVehicleId ? vehicles.find(vehicle => vehicle.id === form.assignedVehicleId) : undefined;
-  const maxPassengers = selectedVehicle?.capacity ?? 9;
+  const maxPassengers = form.vehicleCategory === 'bus' ? 20 : form.vehicleCategory === 'car' ? 4 : 1;
 
   function set(field: string, val: unknown) {
     setForm(f => ({ ...f, [field]: val }));
@@ -186,14 +186,14 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
     }`;
 
   return (
-    <div className="max-w-3xl">
-      <div className="bg-white rounded-xl border border-border shadow-sm">
+    <div className="w-full">
+      <div className="w-full bg-white rounded-xl border border-border shadow-sm">
         <div className="px-6 py-5 border-b border-border">
           <h2 className="text-ink text-lg font-semibold">{initialMission ? 'Modifier le brouillon' : 'Nouvelle demande de mission'}</h2>
           <p className="text-muted text-sm mt-0.5">{initialMission ? 'Complétez les informations puis soumettez la mission.' : 'Renseignez les informations de votre déplacement professionnel'}</p>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
           {/* Demandeur */}
           <Field label="Demandeur" error={errors.demandeurId} required>
             <div className="relative">
@@ -389,7 +389,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
                         <button
                           key={category.id}
                           type="button"
-                          onClick={() => { set('vehicleCategory', category.id); set('assignedVehicleId', ''); set('passengers', Math.min(form.passengers, 9)); }}
+                          onClick={() => { set('vehicleCategory', category.id); set('assignedVehicleId', ''); set('passengers', Math.min(form.passengers, category.id === 'bus' ? 20 : 4)); }}
                           className={`rounded-xl border px-3 py-2.5 text-left transition-all ${form.vehicleCategory === category.id ? 'border-navy bg-navy-light ring-1 ring-navy/20' : 'border-border hover:border-navy/40'}`}
                         >
                           <span className="block text-sm font-semibold text-ink">{category.label}</span>
@@ -405,7 +405,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
                           <button
                             key={v.id}
                             type="button"
-                            onClick={() => { set('assignedVehicleId', v.id); set('passengers', Math.min(form.passengers, v.capacity)); }}
+                            onClick={() => { set('assignedVehicleId', v.id); set('passengers', Math.min(form.passengers, form.vehicleCategory === 'bus' ? 20 : 4)); }}
                             className={`w-full text-left px-3.5 py-2.5 rounded-xl border transition-all ${
                               form.assignedVehicleId === v.id
                                 ? 'border-navy bg-navy-light'

@@ -164,11 +164,6 @@ export default function Layout({
                 );
               })}
             </div>
-            {sidebarOpen && (
-              <p className="mb-2 mt-8 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ink-muted)]">
-                Administration
-              </p>
-            )}
             <div className="space-y-1">
               {navItems.slice(2).map((item) => {
                 const Icon = item.icon;

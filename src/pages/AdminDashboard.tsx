@@ -214,15 +214,12 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
-  const [period, setPeriod] = useState('Cette année');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
   const [exportOpen, setExportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const effMissions = missions.map((m) => (statusOverrides[m.id] ? { ...m, status: statusOverrides[m.id] } : m));
-  const filteredMissions = effMissions.filter((mission) => (!fromDate || mission.departureDate >= fromDate) && (!toDate || mission.departureDate <= toDate));
+  const filteredMissions = effMissions;
   const totalMissions = filteredMissions.length;
   const activeMissions = filteredMissions.filter((m) => m.status === 'en_cours');
   const availableVehicles = vehicles.filter((v) => v.status === 'disponible');
@@ -259,12 +256,6 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   const greeting =
     today.getHours() < 12 ? 'Bonjour' : today.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
   const admin = currentUsers.admin;
-
-  const averageCapacity = (category: 'car' | 'bus') => {
-    const categoryVehicles = vehicles.filter(vehicle => vehicle.category === category);
-    if (!categoryVehicles.length) return '0';
-    return (categoryVehicles.reduce((sum, vehicle) => sum + vehicle.capacity, 0) / categoryVehicles.length).toLocaleString('fr-DZ', { maximumFractionDigits: 1 });
-  };
 
   function showToast(message: string) {
     setToast(message);
@@ -328,19 +319,6 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
             })}
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <label className="sr-only" htmlFor="period">
-            Période du tableau de bord
-          </label>
-          <select
-            id="period"
-            value={period}
-            onChange={(event) => setPeriod(event.target.value)}
-            className="h-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--ink-soft)] focus:border-[var(--line-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-soft)]"
-          >
-            <option>Cette année</option>
-            <option>Ce trimestre</option>
-            <option>Ce mois</option>
-          </select>
           <div className="relative">
             <button type="button" onClick={() => setExportOpen(open => !open)} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3.5 text-xs font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2">
               <FileArrowDown size={16} /> Exporter
@@ -352,10 +330,6 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
               </div>
             )}
           </div>
-          <label className="sr-only" htmlFor="dashboard-from">Date de début</label>
-          <input id="dashboard-from" type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} className="h-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink-soft)]" />
-          <label className="sr-only" htmlFor="dashboard-to">Date de fin</label>
-          <input id="dashboard-to" type="date" value={toDate} onChange={event => setToDate(event.target.value)} className="h-10 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink-soft)]" />
           <button
             type="button"
             onClick={() => onNavigate('new-mission')}
@@ -413,9 +387,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
                 </span>
                 <h2 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-[var(--ink)]">Missions par mois</h2>
               </div>
-              <p className="mt-2 text-xs text-[var(--ink-muted)]">
-                Volume de missions enregistrées sur {period.toLowerCase()}.
-              </p>
+              <p className="mt-2 text-xs text-[var(--ink-muted)]">Volume de missions enregistrées.</p>
             </div>
           </div>
           <div ref={chartRef} className="mt-6 h-[270px] w-full">
@@ -488,17 +460,6 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
             ))}
           </div>
         </article>
-      </section>
-
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)] sm:p-6">
-        <div>
-          <h2 className="text-xl font-semibold text-[var(--ink)]">Capacité moyenne de la flotte</h2>
-          <p className="mt-1 text-base text-[var(--ink-muted)]">Nombre moyen de places par catégorie de véhicule.</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <div className="rounded-xl bg-[var(--surface-muted)] px-4 py-3"><p className="text-sm font-medium text-[var(--ink-muted)]">Voitures</p><p className="mt-1 text-2xl font-semibold text-[var(--ink)]">{averageCapacity('car')} <span className="text-sm font-medium">places</span></p></div>
-          <div className="rounded-xl bg-[var(--surface-muted)] px-4 py-3"><p className="text-sm font-medium text-[var(--ink-muted)]">Bus</p><p className="mt-1 text-2xl font-semibold text-[var(--ink)]">{averageCapacity('bus')} <span className="text-sm font-medium">places</span></p></div>
-        </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">

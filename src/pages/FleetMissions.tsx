@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import MissionRouteMap, { STATUS_PROGRESS } from '../components/MissionRouteMap';
-import { getMissionStops, missionRouteSummary, missions, vehicles, drivers } from '../data/mock';
+import { ArrowSquareOut } from '@phosphor-icons/react';
+import { getMissionStops, missionRouteSummary, missions } from '../data/mock';
 import type { Mission, Status } from '../data/mock';
 
 const STAGES = ['Programmée', 'En cours', 'Terminée'] as const;
@@ -78,8 +79,6 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
   });
 
   const selected = effMissions.find(m => m.id === selectedId) ?? null;
-  const vehicle = selected?.vehicleId ? vehicles.find(v => v.id === selected!.vehicleId) : null;
-  const driver = selected?.driverId ? drivers.find(d => d.id === selected!.driverId) : null;
   const t = selected ? (STATUS_PROGRESS[selected.status as Status] ?? 0) : 0;
 
   const counts = {
@@ -360,15 +359,6 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
 
                       <div className="w-px h-10 bg-slate-100 flex-shrink-0"/>
 
-                      {/* Trajet */}
-                      <div className="flex-shrink-0">
-                        <p className="text-[10px] font-semibold text-muted uppercase tracking-wide leading-none mb-0.5">Trajet</p>
-                        <p className="text-ink text-sm font-semibold leading-tight max-w-[220px] truncate">{getMissionStops(selected)[0]?.name}</p>
-                        <p className="text-muted text-[11px] leading-tight max-w-[220px] truncate">{missionRouteSummary(selected).split(' → ').slice(1).join(' → ')}</p>
-                      </div>
-
-                      <div className="w-px h-10 bg-slate-100 flex-shrink-0"/>
-
                       {/* Départ */}
                       <div className="flex-shrink-0">
                         <p className="text-[10px] font-semibold text-muted uppercase tracking-wide leading-none mb-0.5">Départ</p>
@@ -391,21 +381,6 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                         <p className="text-muted text-[11px] leading-tight">{selected.returnTime || '—'}</p>
                       </div>
 
-                      <div className="w-px h-10 bg-slate-100 flex-shrink-0"/>
-
-                      {/* Véhicule */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-semibold text-muted uppercase tracking-wide leading-none mb-0.5">Véhicule</p>
-                        {vehicle ? (
-                          <>
-                            <p className="text-ink text-sm font-semibold leading-tight">{vehicle.registration}</p>
-                            <p className="text-muted text-[11px] leading-tight">{driver?.name || '—'}</p>
-                          </>
-                        ) : (
-                          <p className="text-slate-400 text-sm font-medium">Non affecté</p>
-                        )}
-                      </div>
-
                       {/* Actions */}
                       <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
                         <button
@@ -419,9 +394,11 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
                         </button>
                         <button
                           onClick={() => onNavigate('mission-detail', selected.id)}
-                          className="px-4 py-2 bg-navy text-white text-sm font-semibold rounded-xl hover:bg-navy-dark transition-colors whitespace-nowrap"
+                          className="grid h-10 w-10 place-items-center rounded-xl bg-navy text-white transition-colors hover:bg-navy-dark"
+                          aria-label={selected.status === 'brouillon' ? 'Modifier le brouillon' : 'Voir les détails'}
+                          title={selected.status === 'brouillon' ? 'Modifier le brouillon' : 'Voir les détails'}
                         >
-                          {selected.status === 'brouillon' ? 'Modifier le brouillon' : 'Détails'}
+                          <ArrowSquareOut size={18} weight="bold" />
                         </button>
                         {selected.status === 'en_attente' && selected.driverId && (
                           <button

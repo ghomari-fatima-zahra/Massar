@@ -136,7 +136,6 @@ export default function LoginPage({ onLogin }: Props) {
                 <span className="login-checkbox"><CheckIcon /></span>
                 <span>Se souvenir de moi</span>
               </label>
-              <span className="login-session"><LockIcon /> Session privée</span>
             </div>
 
             {forgotSent && (
@@ -162,10 +161,6 @@ export default function LoginPage({ onLogin }: Props) {
           </form>
 
           <div className="login-divider"><span>ACCÈS RÉSERVÉ AU PERSONNEL</span></div>
-
-          <p className="login-support">
-            Besoin d'aide ? <button type="button">Contacter le support informatique</button>
-          </p>
 
         </div>
       </section>
