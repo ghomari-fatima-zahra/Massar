@@ -472,8 +472,8 @@ h4 { font-size: 1.25rem !important; line-height: 1.25; }
   width: min(100%, 438px);
 }
 
-.login-mobile-brand { display: flex; flex-direction: column; justify-content: center; text-align: center; margin-bottom: 42px; }
-.login-brand-heading { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.login-mobile-brand { display: flex; flex-direction: column; justify-content: center; text-align: center; margin-bottom: 60px; }
+.login-brand-heading { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .login-mobile-brand .login-brand-name { color: #075985; }
 
 .login-tagline {

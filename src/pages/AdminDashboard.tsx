@@ -277,7 +277,12 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   function exportChartPng() {
     const svg = chartRef.current?.querySelector('svg');
     if (!svg) return;
-    const svgText = new XMLSerializer().serializeToString(svg).replaceAll('var(--navy)', '#075985').replaceAll('var(--accent)', '#f97316').replaceAll('var(--line)', '#e2e8f0').replaceAll('var(--ink-muted)', '#64748b');
+    const svgText = new XMLSerializer()
+      .serializeToString(svg)
+      .split('var(--navy)').join('#075985')
+      .split('var(--accent)').join('#f97316')
+      .split('var(--line)').join('#e2e8f0')
+      .split('var(--ink-muted)').join('#64748b');
     const canvas = document.createElement('canvas');
     const width = svg.clientWidth || 900;
     const height = svg.clientHeight || 300;
