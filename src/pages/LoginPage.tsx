@@ -81,13 +81,13 @@ export default function LoginPage({ onLogin }: Props) {
       <section className="login-panel">
         <div className="login-panel-inner">
           <div className="login-mobile-brand">
-            <div className="login-supplied-logo" aria-hidden="true">
-              <img src="/logo-size-variations.png" alt="" />
-            </div>
-            <div>
+            <div className="login-brand-heading">
+              <div className="login-supplied-logo" aria-hidden="true">
+                <img src="/logo-size-variations.png" alt="" />
+              </div>
               <p className="login-brand-name">Massar</p>
-              <p className="login-tagline">Planifiez vos missions, affectez véhicules et conducteurs, suivez chaque déplacement en temps réel.</p>
             </div>
+            <p className="login-tagline">Planifiez vos missions, affectez véhicules et conducteurs, suivez chaque déplacement en temps réel.</p>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
