@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate as useRouterNavigate } from 'react-router-dom';
 import { vehicles, drivers, missions, users } from './data/mock';
 import type { Driver, MissionRoute, Status, AppUser } from './data/mock';
 import { Bus, Car, FileArrowDown, PencilSimple, Trash, UserPlus, X } from '@phosphor-icons/react';
 import Layout from './components/Layout';
+import Pagination from './components/Pagination';
 import LoginPage from './pages/LoginPage';
 import VehicleTelemetryModal from './components/VehicleTelemetryModal';
 import NewMissionForm from './pages/NewMissionForm';
@@ -45,12 +47,53 @@ const PAGE_BREADCRUMBS: Record<string, string> = {
   parametres: 'Administration',
 };
 
+const PAGE_PATHS: Record<Exclude<Page, 'new-mission' | 'mission-detail'>, string> = {
+  'admin-dashboard': '/dashboard',
+  'fleet-missions': '/missions',
+  'admin-drivers': '/conducteurs',
+  employes: '/employes',
+  'admin-vehicles': '/vehicules',
+  'admin-structures': '/structures',
+  notifications: '/notifications',
+  parametres: '/parametres',
+  aide: '/aide',
+};
+
+function pageFromPath(pathname: string): Page {
+  if (pathname === '/' || pathname === '/dashboard') return 'admin-dashboard';
+  if (pathname === '/missions' || pathname === '/missions/new') return 'fleet-missions';
+  if (/^\/missions\/[^/]+$/.test(pathname)) return 'mission-detail';
+  if (pathname === '/conducteurs') return 'admin-drivers';
+  if (pathname === '/employes') return 'employes';
+  if (pathname === '/vehicules') return 'admin-vehicles';
+  if (pathname === '/structures') return 'admin-structures';
+  if (pathname === '/notifications') return 'notifications';
+  if (pathname === '/parametres') return 'parametres';
+  if (pathname === '/aide') return 'aide';
+  return 'admin-dashboard';
+}
+
+function missionIdFromPath(pathname: string) {
+  const match = pathname.match(/^\/missions\/([^/]+)$/);
+  return match?.[1];
+}
+
+function pathForPage(page: Page, id?: string) {
+  if (page === 'new-mission') return '/missions/new';
+  if (page === 'mission-detail') return id ? `/missions/${id}` : '/missions';
+  return PAGE_PATHS[page as Exclude<Page, 'new-mission' | 'mission-detail'>] ?? '/dashboard';
+}
+
 export default function App() {
+  const location = useLocation();
+  const routerNavigate = useRouterNavigate();
+  const initialPage = pageFromPath(location.pathname);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentPage, setCurrentPage] = useState<Page>('admin-dashboard');
-  const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>();
+  const [currentPage, setCurrentPage] = useState<Page>(initialPage);
+  const [missionModalOpen, setMissionModalOpen] = useState(location.pathname === '/missions/new');
+  const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>(() => missionIdFromPath(location.pathname));
   const [editingMissionId, setEditingMissionId] = useState<string | undefined>();
-  const [fleetFilter, setFleetFilter] = useState<string>('all');
+  const [fleetFilter, setFleetFilter] = useState<string>(() => new URLSearchParams(location.search).get('status') ?? 'all');
   const [history, setHistory] = useState<Page[]>([]);
   // Admin assignments at creation: mission starts with driver+vehicle assigned
   const [assignments, setAssignments] = useState<Record<string, { vehicleId: string; driverId: string }>>({});
@@ -58,6 +101,21 @@ export default function App() {
   const [statusOverrides, setStatusOverrides] = useState<Record<string, Status>>({});
   // Company employees (demandeurs) — admin managed
   const [employeeList, setEmployeeList] = useState<AppUser[]>(users);
+
+  useEffect(() => {
+    if (location.pathname === '/missions/new') {
+      setMissionModalOpen(true);
+      return;
+    }
+
+    const nextPage = pageFromPath(location.pathname);
+    setCurrentPage(nextPage);
+    setMissionModalOpen(false);
+    setSelectedMissionId(missionIdFromPath(location.pathname));
+    if (nextPage === 'fleet-missions') {
+      setFleetFilter(new URLSearchParams(location.search).get('status') ?? 'all');
+    }
+  }, [location.pathname, location.search]);
 
   // Driver presses "Démarrer": the mission starts immediately
   function handleStartMission(missionId: string) {
@@ -174,6 +232,8 @@ export default function App() {
     setCurrentPage('admin-dashboard');
     setHistory([]);
     setFleetFilter('all');
+    setMissionModalOpen(false);
+    routerNavigate('/dashboard', { replace: true });
     setIsLoggedIn(true);
   }
 
@@ -181,27 +241,66 @@ export default function App() {
     setCurrentPage('admin-dashboard');
     setHistory([]);
     setFleetFilter('all');
+    setMissionModalOpen(false);
+    routerNavigate('/dashboard', { replace: true });
     setIsLoggedIn(false);
   }
 
   function navigate(page: string, id?: string) {
     const next = page as Page;
+
+    if (next === 'new-mission') {
+      setEditingMissionId(id);
+      setMissionModalOpen(true);
+      routerNavigate('/missions/new', { state: { background: `${location.pathname}${location.search}` } });
+      return;
+    }
+
     setHistory((h) => [...h.slice(-19), currentPage]);
     setCurrentPage(next);
+    setMissionModalOpen(false);
     if (next === 'mission-detail' && id) setSelectedMissionId(id);
-    if (next === 'new-mission') setEditingMissionId(id);
-    if (next === 'fleet-missions') setFleetFilter(id ?? 'all');
+    if (next === 'fleet-missions') {
+      const filter = id ?? 'all';
+      setFleetFilter(filter);
+      routerNavigate(filter === 'all' ? '/missions' : `/missions?status=${encodeURIComponent(filter)}`);
+      return;
+    }
+    routerNavigate(pathForPage(next, id));
   }
 
   // Back to the previous page (instead of always jumping to the dashboard)
   function goBack() {
+    if (missionModalOpen) {
+      setMissionModalOpen(false);
+      setEditingMissionId(undefined);
+      const background = (location.state as { background?: string } | null)?.background;
+      routerNavigate(background || pathForPage(currentPage), { replace: true });
+      return;
+    }
+
     const prev = history[history.length - 1];
     if (!prev) {
       setCurrentPage('admin-dashboard');
+      routerNavigate('/dashboard', { replace: true });
       return;
     }
     setHistory(history.slice(0, -1));
     setCurrentPage(prev);
+    routerNavigate(pathForPage(prev), { replace: true });
+  }
+
+  function renderMissionForm() {
+    return (
+      <NewMissionForm
+        key={editingMissionId ?? 'new-mission'}
+        initialMission={missions.find(mission => mission.id === editingMissionId) ?? null}
+        employees={employeeList}
+        onNavigate={navigate}
+        onBack={goBack}
+        onSubmitMission={handleSubmitMission}
+      />
+    );
   }
 
   function renderPage() {
@@ -211,7 +310,7 @@ export default function App() {
       case 'fleet-missions':
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
-        return <NewMissionForm key={editingMissionId ?? 'new-mission'} initialMission={missions.find(mission => mission.id === editingMissionId) ?? null} employees={employeeList} onNavigate={navigate} onBack={goBack} onSubmitMission={handleSubmitMission} />;
+        return renderMissionForm();
       case 'mission-detail': {
         const mission = selectedMissionId ? missions.find(item => item.id === selectedMissionId) : null;
         if (!mission) {
@@ -262,6 +361,11 @@ export default function App() {
       <PageErrorBoundary resetKey={currentPage} onReset={() => setCurrentPage('admin-dashboard')}>
         {renderPage()}
       </PageErrorBoundary>
+      {missionModalOpen && (
+        <PageErrorBoundary resetKey={`mission-modal-${editingMissionId ?? 'new'}`} onReset={goBack}>
+          {renderMissionForm()}
+        </PageErrorBoundary>
+      )}
     </Layout>
   );
 }
@@ -309,6 +413,7 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
   const [pendingDelete, setPendingDelete] = useState<Driver | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Driver['status']>('all');
+  const [driverPage, setDriverPage] = useState(1);
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -405,6 +510,10 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
     (statusFilter === 'all' || getEffectiveStatus(d) === statusFilter) &&
     (!driverQuery || `${d.name} ${d.matricule} ${d.phone}`.toLowerCase().includes(driverQuery)),
   );
+  const driverPageSize = 5;
+  const driverPageCount = Math.max(1, Math.ceil(filteredDrivers.length / driverPageSize));
+  const driverPageNumber = Math.min(driverPage, driverPageCount);
+  const pagedDrivers = filteredDrivers.slice((driverPageNumber - 1) * driverPageSize, driverPageNumber * driverPageSize);
 
   function exportDrivers() {
     downloadCsv(
@@ -423,13 +532,6 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
 
   return (
     <div className="w-full space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-muted text-sm">{filteredDrivers.length} conducteur(s) enregistré(s)</p>
-        <button onClick={openModal} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
-          Nouveau conducteur
-        </button>
-      </div>
       <div className="flex flex-wrap items-center gap-3">
       <div className="relative min-w-[240px] max-w-md flex-1">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -460,9 +562,14 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
         <FileArrowDown size={18} />
         Exporter CSV
       </button>
+      <button onClick={openModal} className="ml-auto flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Nouveau conducteur
+      </button>
       </div>
-      <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
-        <table className="w-full text-sm min-w-[780px]">
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[780px]">
           <thead>
             <tr className="border-b border-border bg-slate-50/80">
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Conducteur</th>
@@ -474,7 +581,7 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filteredDrivers.map(d => {
+            {pagedDrivers.map(d => {
               const expiry = new Date(d.licenceExpiry);
               const daysLeft = Math.floor((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
               const warning = daysLeft < 90;
@@ -529,7 +636,15 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
               );
             })}
           </tbody>
-        </table>
+          </table>
+        </div>
+        <Pagination
+          currentPage={driverPageNumber}
+          totalItems={filteredDrivers.length}
+          pageSize={driverPageSize}
+          itemLabel="conducteur(s) enregistré(s)"
+          onPageChange={setDriverPage}
+        />
       </div>
 
       {/* Add driver modal */}
@@ -659,6 +774,7 @@ function AdminVehiclesPage({
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [vehiclePage, setVehiclePage] = useState(1);
   const [form, setForm] = useState({
     brand: '',
     model: '',
@@ -782,6 +898,10 @@ function AdminVehiclesPage({
     (typeFilter === 'all' || v.type === typeFilter) &&
     (!vQuery || `${v.brand} ${v.model} ${v.registration} ${v.gps}`.toLowerCase().includes(vQuery)),
   );
+  const vehiclePageSize = 5;
+  const vehiclePageCount = Math.max(1, Math.ceil(filteredVehicles.length / vehiclePageSize));
+  const vehiclePageNumber = Math.min(vehiclePage, vehiclePageCount);
+  const pagedVehicles = filteredVehicles.slice((vehiclePageNumber - 1) * vehiclePageSize, vehiclePageNumber * vehiclePageSize);
 
   function currentMissionFor(vid: string) {
     const sessionMid = Object.entries(assignments).find(([, a]) => a.vehicleId === vid)?.[0];
@@ -807,13 +927,6 @@ function AdminVehiclesPage({
 
   return (
     <div className="w-full space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-muted text-sm">{filteredVehicles.length} véhicule(s) enregistré(s)</p>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
-          Nouveau véhicule
-        </button>
-      </div>
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -838,10 +951,15 @@ function AdminVehiclesPage({
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <button onClick={openCreate} className="ml-auto flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nouveau véhicule
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
-        <table className="w-full text-sm min-w-[900px]">
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[900px]">
           <thead>
             <tr className="border-b border-border bg-slate-50/80">
               <th className="text-left px-4 py-3 text-muted font-medium text-xs uppercase tracking-wider">Véhicule</th>
@@ -855,7 +973,7 @@ function AdminVehiclesPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filteredVehicles.map(v => (
+            {pagedVehicles.map(v => (
               <tr key={v.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => setDetailId(v.id)}>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
@@ -897,7 +1015,15 @@ function AdminVehiclesPage({
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
+        <Pagination
+          currentPage={vehiclePageNumber}
+          totalItems={filteredVehicles.length}
+          pageSize={vehiclePageSize}
+          itemLabel="véhicule(s) enregistré(s)"
+          onPageChange={setVehiclePage}
+        />
       </div>
 
       {/* Vehicle assignment modal */}
@@ -1105,6 +1231,11 @@ function AdminStructuresPage() {
     { name: 'Division Infrastructure', location: 'Alger', employees: 31, code: 'DI-ALG' },
     { name: 'Division Commerciale', location: 'Alger', employees: 22, code: 'DC-ALG' },
   ];
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
+  const pageCount = Math.max(1, Math.ceil(structures.length / pageSize));
+  const pageNumber = Math.min(page, pageCount);
+  const pagedStructures = structures.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
   return (
     <div className="max-w-4xl space-y-5">
       <div className="flex justify-end">
@@ -1125,7 +1256,7 @@ function AdminStructuresPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {structures.map(s => (
+            {pagedStructures.map(s => (
               <tr key={s.code} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-5 py-4 text-ink font-medium">{s.name}</td>
                 <td className="px-5 py-4 font-mono text-xs text-muted">{s.code}</td>
@@ -1138,6 +1269,13 @@ function AdminStructuresPage() {
             ))}
           </tbody>
         </table>
+        <Pagination
+          currentPage={pageNumber}
+          totalItems={structures.length}
+          pageSize={pageSize}
+          itemLabel="structure(s)"
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

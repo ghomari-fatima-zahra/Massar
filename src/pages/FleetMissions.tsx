@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import MissionRouteMap, { STATUS_PROGRESS } from '../components/MissionRouteMap';
-import { ArrowSquareOut } from '@phosphor-icons/react';
+import { ArrowSquareOut, CheckCircle, Clock, PlayCircle } from '@phosphor-icons/react';
+import Pagination from '../components/Pagination';
 import { getMissionStops, missionRouteSummary, missions } from '../data/mock';
 import type { Mission, Status } from '../data/mock';
 
@@ -78,6 +79,12 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
     return sortOrder.endsWith('desc') ? -difference : difference;
   });
 
+  const missionPageSize = 5;
+  const [missionPage, setMissionPage] = useState(1);
+  const missionPageCount = Math.max(1, Math.ceil(sortedMissions.length / missionPageSize));
+  const missionPageNumber = Math.min(missionPage, missionPageCount);
+  const pagedMissions = sortedMissions.slice((missionPageNumber - 1) * missionPageSize, missionPageNumber * missionPageSize);
+
   const selected = effMissions.find(m => m.id === selectedId) ?? null;
   const t = selected ? (STATUS_PROGRESS[selected.status as Status] ?? 0) : 0;
 
@@ -92,15 +99,22 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
       {/* KPI row stays visible above the working area. */}
       <div className="grid shrink-0 grid-cols-3 gap-3">
         {[
-          { label: 'En cours', key: 'en_cours', count: counts.en_cours, color: 'text-cyan-600', bg: 'bg-cyan-50 border-cyan-100' },
-          { label: 'Programmées', key: 'en_attente', count: counts.en_attente, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-          { label: 'Terminées', key: 'terminee', count: counts.terminee, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100' },
+          { label: 'En cours', key: 'en_cours', count: counts.en_cours, icon: PlayCircle, iconBg: 'bg-[var(--info-soft)]', iconColor: 'text-[var(--info)]' },
+          { label: 'Programmées', key: 'en_attente', count: counts.en_attente, icon: Clock, iconBg: 'bg-[var(--warning-soft)]', iconColor: 'text-[var(--warning)]' },
+          { label: 'Terminées', key: 'terminee', count: counts.terminee, icon: CheckCircle, iconBg: 'bg-[var(--success-soft)]', iconColor: 'text-[var(--success)]' },
         ].map(s => {
           const active = filterStatus === s.key;
           return (
-            <button key={s.label} type="button" title={`Filtrer : ${s.label}`} onClick={() => setFilterStatus(active ? 'all' : s.key)} className={`rounded-xl border px-4 py-3 text-left transition-all ${s.bg} ${active ? 'ring-2 ring-navy shadow-md' : 'hover:shadow'}`}>
-              <p className={`text-2xl font-bold leading-none ${s.color}`}>{s.count}</p>
-              <p className="mt-1 text-sm font-medium text-slate-500">{s.label}</p>
+            <button key={s.label} type="button" title={`Filtrer : ${s.label}`} onClick={() => setFilterStatus(active ? 'all' : s.key)} className={`rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 text-left shadow-[var(--shadow-sm)] transition-shadow hover:shadow-[var(--shadow-md)] ${active ? 'ring-2 ring-[var(--accent)]' : ''}`}>
+              <div className="flex items-center gap-3">
+                <span className={`grid h-9 w-9 place-items-center rounded-lg ${s.iconBg} ${s.iconColor}`}>
+                  <s.icon size={18} weight="regular" />
+                </span>
+                <div>
+                  <p className="tabular-nums text-[28px] font-semibold leading-none tracking-[-0.03em] text-[var(--ink)]">{s.count}</p>
+                  <p className="mt-1 text-sm font-medium text-[var(--ink-muted)]">{s.label}</p>
+                </div>
+              </div>
             </button>
           );
         })}
@@ -193,7 +207,7 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
               <p className="text-muted text-sm">Aucune mission trouvée</p>
             </div>
           )}
-          {sortedMissions.map(m => {
+          {pagedMissions.map(m => {
             const isSelected = selectedId === m.id;
             return (
               <button
@@ -231,6 +245,16 @@ export default function FleetMissions({ onNavigate, initialFilter, assignments, 
             );
           })}
         </div>
+
+        {sortedMissions.length > 0 && (
+          <Pagination
+            currentPage={missionPageNumber}
+            totalItems={sortedMissions.length}
+            pageSize={missionPageSize}
+            itemLabel="mission(s)"
+            onPageChange={setMissionPage}
+          />
+        )}
 
         <button
           onClick={() => onNavigate('new-mission')}

@@ -310,7 +310,8 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
       <section className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
         <div>
           <h1 className="mt-0 text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--ink)]">
-            {greeting}, {admin.name}
+            <span className="block">{greeting},</span>
+            <span className="block">{admin.name}</span>
           </h1>
         </div>
         <div className="flex flex-col items-start gap-3 lg:items-end">

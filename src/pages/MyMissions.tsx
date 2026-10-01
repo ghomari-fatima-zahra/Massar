@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
+import Pagination from '../components/Pagination';
 import { missions, currentUsers, STATUS_LABELS } from '../data/mock';
 import type { Status } from '../data/mock';
 
@@ -15,6 +16,7 @@ export default function MyMissions({ onNavigate }: Props) {
   const [filterStatus, setFilterStatus] = useState<Status | 'all'>('all');
   const [filterType, setFilterType] = useState<'all' | 'interne' | 'externe'>('all');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const filtered = myMissions.filter(m => {
     if (filterStatus !== 'all' && m.status !== filterStatus) return false;
@@ -22,6 +24,10 @@ export default function MyMissions({ onNavigate }: Props) {
     if (search && !m.object.toLowerCase().includes(search.toLowerCase()) && !m.destination.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+  const pageSize = 5;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageNumber = Math.min(page, pageCount);
+  const pagedMissions = filtered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
 
   return (
     <div className="max-w-6xl space-y-5">
@@ -86,7 +92,7 @@ export default function MyMissions({ onNavigate }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filtered.map(m => (
+            {pagedMissions.map(m => (
               <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-5 py-3.5 font-mono text-xs text-muted">{m.id}</td>
                 <td className="px-5 py-3.5">
@@ -129,16 +135,14 @@ export default function MyMissions({ onNavigate }: Props) {
           </div>
         )}
 
-        {/* Pagination placeholder */}
         {filtered.length > 0 && (
-          <div className="px-5 py-3.5 border-t border-border flex items-center justify-between">
-            <p className="text-muted text-sm">{filtered.length} mission(s) trouvée(s)</p>
-            <div className="flex gap-1">
-              <button className="px-3 py-1.5 text-xs rounded border border-border text-muted hover:bg-slate-50 transition-colors">← Préc.</button>
-              <button className="px-3 py-1.5 text-xs rounded border border-navy bg-navy text-white">1</button>
-              <button className="px-3 py-1.5 text-xs rounded border border-border text-muted hover:bg-slate-50 transition-colors">Suiv. →</button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={pageNumber}
+            totalItems={filtered.length}
+            pageSize={pageSize}
+            itemLabel="mission(s) trouvée(s)"
+            onPageChange={setPage}
+          />
         )}
       </div>
     </div>

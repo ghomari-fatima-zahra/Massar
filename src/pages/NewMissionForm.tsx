@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X } from '@phosphor-icons/react';
 import { getMissionStops, makeMissionRoute, vehicles, drivers } from '../data/mock';
 import type { AppUser, Mission, MissionRoute } from '../data/mock';
 
@@ -130,46 +131,61 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
 
   if (submitted) {
     return (
-      <div className="max-w-lg mx-auto mt-16 text-center">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 ${draft ? 'bg-slate-100' : 'bg-success-bg'}`}>
-          {draft ? (
-            <svg className="w-8 h-8 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
-            </svg>
-          ) : (
-            <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          )}
-        </div>
-        <h3 className="text-ink text-xl font-bold mb-2">
-          {draft ? 'Brouillon enregistré' : 'Mission soumise avec succès'}
-        </h3>
-        <p className="text-muted text-sm mb-8">
-          {draft
-            ? 'Votre mission a été sauvegardée en brouillon. Vous pouvez la soumettre ultérieurement.'
-            : 'Votre demande de mission a été transmise avec conducteur et véhicule affectés.'}
-        </p>
-        <div className="flex gap-3 justify-center">
-          <button onClick={() => onNavigate('fleet-missions')} className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-dark transition-colors">
-            Voir mes missions
-          </button>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3 backdrop-blur-[1px] sm:p-6"
+        onMouseDown={event => { if (event.target === event.currentTarget) onBack(); }}
+      >
+        <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-white p-8 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="mission-success-title">
           <button
-            onClick={() => {
-              setSubmitted(false);
-              setForm({ demandeurId: '', demandeurQuery: '', type: 'externe', object: '', departure: '', destination: '', intermediateStops: [], roundTrip: false, departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, notes: '', assignedDriverId: '', vehicleCategory: '', assignedVehicleId: '' });
-            }}
-            className="px-5 py-2.5 border border-border text-ink rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+            type="button"
+            onClick={onBack}
+            aria-label="Fermer"
+            className="absolute right-5 top-5 grid h-9 w-9 place-items-center rounded-lg text-muted transition-colors hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy"
           >
-            Nouvelle mission
+            <X size={20} />
           </button>
+          <div className="max-w-lg mx-auto text-center">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 ${draft ? 'bg-slate-100' : 'bg-success-bg'}`}>
+              {draft ? (
+                <svg className="w-8 h-8 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                </svg>
+              ) : (
+                <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              )}
+            </div>
+            <h2 id="mission-success-title" className="text-ink text-xl font-bold mb-2">
+              {draft ? 'Brouillon enregistré' : 'Mission soumise avec succès'}
+            </h2>
+            <p className="text-muted text-sm mb-8">
+              {draft
+                ? 'Votre mission a été sauvegardée en brouillon. Vous pouvez la soumettre ultérieurement.'
+                : 'Votre demande de mission a été transmise avec conducteur et véhicule affectés.'}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => onNavigate('fleet-missions')} className="px-5 py-2.5 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-dark transition-colors">
+                Voir mes missions
+              </button>
+              <button
+                onClick={() => {
+                  setSubmitted(false);
+                  setForm({ demandeurId: '', demandeurQuery: '', type: 'externe', object: '', departure: '', destination: '', intermediateStops: [], roundTrip: false, departureDate: '', departureTime: '08:00', returnDate: '', returnTime: '', passengers: 1, notes: '', assignedDriverId: '', vehicleCategory: '', assignedVehicleId: '' });
+                }}
+                className="px-5 py-2.5 border border-border text-ink rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                Nouvelle mission
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  const Field = ({ label, error, children, required, optional }: { label: string; error?: string; children: React.ReactNode; required?: boolean; optional?: boolean }) => (
-    <div>
+  const Field = ({ label, error, children, required, optional, className = '' }: { label: string; error?: string; children: React.ReactNode; required?: boolean; optional?: boolean; className?: string }) => (
+    <div className={className}>
       <label className="block text-sm font-medium text-ink mb-1.5 flex items-center gap-2">
         {label}
         {required && <span className="text-danger">*</span>}
@@ -186,14 +202,33 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
     }`;
 
   return (
-    <div className="w-full">
-      <div className="w-full bg-white rounded-xl border border-border shadow-sm">
-        <div className="px-6 py-5 border-b border-border">
-          <h2 className="text-ink text-lg font-semibold">{initialMission ? 'Modifier le brouillon' : 'Nouvelle demande de mission'}</h2>
-          <p className="text-muted text-sm mt-0.5">{initialMission ? 'Complétez les informations puis soumettez la mission.' : 'Renseignez les informations de votre déplacement professionnel'}</p>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-3 backdrop-blur-[1px] sm:p-6"
+      onMouseDown={event => { if (event.target === event.currentTarget) onBack(); }}
+    >
+      <div
+        className="flex max-h-[calc(100vh-1.5rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-2xl sm:max-h-[calc(100vh-3rem)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-mission-title"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div>
+            <h2 id="new-mission-title" className="text-ink text-lg font-semibold">{initialMission ? 'Modifier le brouillon' : 'Nouvelle demande de mission'}</h2>
+            <p className="text-muted text-sm mt-0.5">{initialMission ? 'Complétez les informations puis soumettez la mission.' : 'Renseignez les informations de votre déplacement professionnel'}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Fermer"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
+        <div className="min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-2">
           {/* Demandeur */}
           <Field label="Demandeur" error={errors.demandeurId} required>
             <div className="relative">
@@ -320,8 +355,9 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
             </Field>
           </div>
 
+          <div className="order-2 flex flex-col gap-6 xl:order-2 xl:col-start-2">
           {/* Passengers */}
-          <Field label="Nombre de passagers" error={errors.passengers} required>
+          <Field label="Nombre de passagers" error={errors.passengers} required className="order-2">
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => set('passengers', Math.max(1, form.passengers - 1))} className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-ink hover:bg-slate-50 transition-colors text-lg font-medium">−</button>
               <span className="w-12 text-center text-ink font-semibold text-lg">{form.passengers}</span>
@@ -332,8 +368,20 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
 
           {/* Véhicule + conducteur choisis dans la section Affectation ci-dessous */}
 
+          {/* Notes / motif: occupy the open left column beside the assignment panel */}
+          <Field label="Observations / Remarques" optional className="order-1">
+            <textarea
+              rows={4}
+              placeholder="Informations complémentaires, contraintes particulières…"
+              className="min-h-[120px] w-full resize-none rounded-lg border border-border bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 transition-all focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/15"
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+            />
+          </Field>
+          </div>
+
           {/* Affectation — conducteur et véhicule */}
-          <div>
+          <div className="order-1 xl:order-1 xl:col-start-1">
             <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">2. Affectation</p>
             <div className="rounded-xl border border-border bg-slate-50/50 overflow-hidden">
                 <div className="px-4 py-4">
@@ -432,19 +480,10 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
               </div>
           </div>
 
-          {/* Notes / motif */}
-          <Field label="Observations / Remarques" optional>
-            <textarea
-              rows={3}
-              placeholder="Informations complémentaires, contraintes particulières…"
-              className="w-full px-3.5 py-2.5 rounded-lg border border-border text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 bg-white resize-none transition-all"
-              value={form.notes}
-              onChange={e => set('notes', e.target.value)}
-            />
-          </Field>
+          </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-border bg-slate-50/50 flex items-center justify-between rounded-b-xl">
+        <div className="flex shrink-0 items-center justify-between border-t border-border bg-slate-50/50 px-6 py-4">
           <button onClick={onBack} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-slate-100">
             Annuler
           </button>

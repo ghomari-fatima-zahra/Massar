@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Trash } from '@phosphor-icons/react';
 import type { AppUser } from '../data/mock';
+import Pagination from '../components/Pagination';
 
 interface Props {
   employees: AppUser[];
@@ -12,6 +13,7 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<AppUser | null>(null);
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState({ name: '', email: '', matricule: '', structure: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -47,21 +49,15 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
   const filtered = employees.filter(e =>
     !q || `${e.name} ${e.email} ${e.matricule} ${e.structure}`.toLowerCase().includes(q),
   );
+  const pageSize = 5;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageNumber = Math.min(page, pageCount);
+  const pagedEmployees = filtered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
 
   return (
     <div className="w-full space-y-5">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-muted text-sm">{filtered.length} employé(s) enregistré(s)</p>
-        <button
-          onClick={() => { setForm({ name: '', email: '', matricule: '', structure: '' }); setErrors({}); setShowModal(true); }}
-          className="flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
-          Nouvel employé
-        </button>
-      </div>
-
-      <div className="relative max-w-md">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[240px] max-w-md flex-1">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35"/>
         </svg>
@@ -72,10 +68,19 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
+        </div>
+        <button
+          onClick={() => { setForm({ name: '', email: '', matricule: '', structure: '' }); setErrors({}); setShowModal(true); }}
+          className="ml-auto flex items-center gap-2 bg-navy hover:bg-navy-dark text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nouvel employé
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-border shadow-sm overflow-x-auto">
-        <table className="w-full text-sm min-w-[820px]">
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[820px]">
           <thead>
             <tr className="border-b border-border bg-slate-50/80">
               <th className="text-left px-4 py-3 text-muted font-medium text-sm uppercase tracking-wider">Employé</th>
@@ -86,7 +91,7 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filtered.map(e => (
+            {pagedEmployees.map(e => (
               <tr key={e.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
@@ -124,7 +129,15 @@ export default function EmployesPage({ employees, onAdd, onDelete }: Props) {
               </tr>
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
+        <Pagination
+          currentPage={pageNumber}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          itemLabel="employé(s) enregistré(s)"
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Add modal */}

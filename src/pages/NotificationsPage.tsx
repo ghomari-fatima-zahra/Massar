@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { notifications } from '../data/mock';
 import type { Notification } from '../data/mock';
+import Pagination from '../components/Pagination';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -41,12 +42,17 @@ export default function NotificationsPage({ onNavigate }: Props) {
     Object.fromEntries(notifications.map(n => [n.id, n.read]))
   );
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [page, setPage] = useState(1);
 
   function markRead(id: string) { setReadState(s => ({ ...s, [id]: true })); }
   function markAllRead() { setReadState(Object.fromEntries(notifications.map(n => [n.id, true]))); }
 
   const unreadCount = notifications.filter(n => !readState[n.id]).length;
   const displayed = notifications.filter(n => filter === 'all' || !readState[n.id]);
+  const pageSize = 5;
+  const pageCount = Math.max(1, Math.ceil(displayed.length / pageSize));
+  const pageNumber = Math.min(page, pageCount);
+  const pagedDisplayed = displayed.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -88,7 +94,7 @@ export default function NotificationsPage({ onNavigate }: Props) {
             <p className="text-muted font-medium">Aucune notification</p>
             {filter === 'unread' && <p className="text-muted/60 text-sm mt-1">Toutes vos notifications ont été lues</p>}
           </div>
-        ) : displayed.map(n => {
+        ) : pagedDisplayed.map(n => {
           const isRead = readState[n.id];
           const style = TYPE_STYLES[n.type];
           return (
@@ -130,9 +136,13 @@ export default function NotificationsPage({ onNavigate }: Props) {
       </div>
 
       {displayed.length > 0 && (
-        <p className="text-center text-muted text-xs py-4">
-          {displayed.length} notification(s) affichée(s)
-        </p>
+        <Pagination
+          currentPage={pageNumber}
+          totalItems={displayed.length}
+          pageSize={pageSize}
+          itemLabel="notification(s) affichée(s)"
+          onPageChange={setPage}
+        />
       )}
     </div>
   );

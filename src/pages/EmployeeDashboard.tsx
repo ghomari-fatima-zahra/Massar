@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import KPICard from '../components/KPICard';
+import Pagination from '../components/Pagination';
 import { missions, currentUsers } from '../data/mock';
 import type { Mission } from '../data/mock';
 
@@ -10,6 +12,11 @@ interface Props {
 export default function EmployeeDashboard({ onNavigate }: Props) {
   const user = currentUsers['admin'];
   const myMissions = missions.filter(m => m.matricule === user.matricule);
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
+  const pageCount = Math.max(1, Math.ceil(myMissions.length / pageSize));
+  const pageNumber = Math.min(page, pageCount);
+  const pagedMissions = myMissions.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
 
   const stats = {
     pending: myMissions.filter(m => m.status === 'en_attente').length,
@@ -103,7 +110,7 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {myMissions.map((m: Mission) => (
+            {pagedMissions.map((m: Mission) => (
               <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-5 py-3.5 font-mono text-xs text-muted">{m.id}</td>
                 <td className="px-5 py-3.5">
@@ -130,6 +137,15 @@ export default function EmployeeDashboard({ onNavigate }: Props) {
             ))}
           </tbody>
         </table>
+        {myMissions.length > 0 && (
+          <Pagination
+            currentPage={pageNumber}
+            totalItems={myMissions.length}
+            pageSize={pageSize}
+            itemLabel="mission(s)"
+            onPageChange={setPage}
+          />
+        )}
         {myMissions.length === 0 && (
           <div className="py-16 text-center">
             <p className="text-muted">Aucune mission pour le moment.</p>

@@ -174,7 +174,7 @@ export default function Layout({
                     type="button"
                     title={!sidebarOpen ? item.label : undefined}
                     onClick={() => onNavigate(item.id)}
-                    className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${
+                    className={`relative flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${
                       sidebarOpen ? '' : 'justify-center px-0'
                     } ${
                       active
@@ -182,6 +182,9 @@ export default function Layout({
                         : 'text-[var(--ink-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--ink)]'
                     }`}
                   >
+                    {active && (
+                      <span className="absolute left-0 h-5 w-0.5 rounded-full bg-[var(--accent)]" />
+                    )}
                     <Icon size={18} />
                     {sidebarOpen && <span>{item.label}</span>}
                   </button>
@@ -229,7 +232,6 @@ export default function Layout({
               <SignOut size={18} />
               {sidebarOpen && <span>Se déconnecter</span>}
             </button>
-            {sidebarOpen && <p className="mt-3 px-3 text-[10px] leading-4 text-[var(--ink-muted)]">© 2026 Massar Fleet. Tous droits réservés.</p>}
           </div>
         </aside>
 
