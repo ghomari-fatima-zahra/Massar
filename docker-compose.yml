@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: massar-fleet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: massar_fleet
+      POSTGRES_USER: massar
+      POSTGRES_PASSWORD: massar
+    ports:
+      - "5432:5432"
+    volumes:
+      - massar-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U massar -d massar_fleet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: massar-fleet-api
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+
+volumes:
+  massar-postgres-data:

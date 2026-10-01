@@ -1,0 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEnum } from 'class-validator';
+import { UserStatus } from '../../../common/enums';
+export class UserStatusDto { @ApiProperty({ enum: UserStatus }) @IsEnum(UserStatus) status!: UserStatus; }
