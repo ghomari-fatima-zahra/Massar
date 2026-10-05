@@ -45,7 +45,7 @@ interface Props {
     assignedDriverId: string;
     assignedVehicleId: string;
     notes: string;
-  }) => void;
+  }) => void | Promise<void>;
 }
 
 function missionToForm(mission?: Mission | null): FormState {
@@ -89,6 +89,7 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [draft, setDraft] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [demandeurSuggestionsOpen, setDemandeurSuggestionsOpen] = useState(false);
 
   const selectedVehicle = form.assignedVehicleId ? vehicles.find(vehicle => vehicle.id === form.assignedVehicleId) : undefined;
@@ -115,17 +116,22 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
     return e;
   }
 
-  function handleSubmit(isDraft: boolean) {
+  async function handleSubmit(isDraft: boolean) {
     if (!isDraft) {
       const e = validate();
       if (Object.keys(e).length) { setErrors(e); return; }
     }
-    setDraft(isDraft);
-    setSubmitted(true);
-    if (onSubmitMission) {
-      const { demandeurId, type, object, departure, destination, intermediateStops, roundTrip, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes } = form;
-      const route = makeMissionRoute([departure, ...intermediateStops, destination], roundTrip);
-      onSubmitMission({ missionId: initialMission?.id, saveAsDraft: isDraft, demandeurId, type, object, departure, destination, route, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
+    setSubmitError('');
+    try {
+      if (onSubmitMission) {
+        const { demandeurId, type, object, departure, destination, intermediateStops, roundTrip, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes } = form;
+        const route = makeMissionRoute([departure, ...intermediateStops, destination], roundTrip);
+        await onSubmitMission({ missionId: initialMission?.id, saveAsDraft: isDraft, demandeurId, type, object, departure, destination, route, departureDate, departureTime, returnDate, returnTime, passengers, assignedDriverId, assignedVehicleId, notes });
+      }
+      setDraft(isDraft);
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Impossible d’enregistrer la mission.');
     }
   }
 
@@ -487,7 +493,8 @@ export default function NewMissionForm({ onNavigate, onBack, employees, initialM
           <button onClick={onBack} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-slate-100">
             Annuler
           </button>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            {submitError && <p className="max-w-xs text-right text-xs text-danger">{submitError}</p>}
             <button onClick={() => handleSubmit(true)} className="px-4 py-2.5 border border-border text-ink text-sm font-medium rounded-lg hover:bg-slate-100 transition-colors">
               Enregistrer brouillon
             </button>

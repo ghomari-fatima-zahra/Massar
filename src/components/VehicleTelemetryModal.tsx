@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -32,6 +32,7 @@ import type { Driver, Mission, Vehicle } from '../data/mock';
 import { STATUS_LABELS, drivers } from '../data/mock';
 import { FUEL_PRICE_DA, SERVICE_INTERVAL_KM, getTelemetry, missionsOfVehicle } from '../data/telemetry';
 import type { ServiceEntry } from '../data/telemetry';
+import { api, type VehicleTelemetry } from '../api/client';
 
 interface Props {
   vehicle: Vehicle;
@@ -147,13 +148,26 @@ function MiniTooltip({ active, payload, label, suffix }: any) {
 
 export default function VehicleTelemetryModal({ vehicle, assignment, onClose, onStatusChange, onDelete }: Props) {
   const [tab, setTab] = useState<Tab>('apercu');
+  const [remoteTelemetry, setRemoteTelemetry] = useState<VehicleTelemetry | null>(null);
   const [services, setServices] = useState<ServiceEntry[]>(() => getTelemetry(vehicle).services);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<Vehicle['status'] | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [svc, setSvc] = useState({ date: new Date().toISOString().slice(0, 10), km: '', type: 'Vidange + filtres', center: '', cost: '' });
 
-  const base = useMemo(() => getTelemetry(vehicle), [vehicle]);
+  useEffect(() => {
+    let active = true;
+    void api.vehicleTelemetry(vehicle.id).then((telemetry) => {
+      if (!active) return;
+      setRemoteTelemetry(telemetry);
+      setServices(telemetry.services);
+    }).catch(() => {
+      // The deterministic local telemetry remains a useful fallback while the API is unavailable.
+    });
+    return () => { active = false; };
+  }, [vehicle.id]);
+
+  const base = useMemo(() => remoteTelemetry ?? getTelemetry(vehicle), [remoteTelemetry, vehicle]);
   // Wear variables are editable: the health index is recomputed live from them.
   const [tweak, setTweak] = useState({
     brake: base.brakeWearPct,
@@ -196,12 +210,14 @@ export default function VehicleTelemetryModal({ vehicle, assignment, onClose, on
     return drivers.find((d) => d.id === id)?.name ?? '—';
   }
 
-  function addService() {
+  async function addService() {
     if (!svc.date || !svc.km || !svc.center || !svc.cost) return;
-    setServices((s) => [
-      { id: `S-${Date.now()}`, date: svc.date, km: Number(svc.km), type: svc.type, center: svc.center, costDA: Number(svc.cost) },
-      ...s,
-    ]);
+    try {
+      const saved = await api.createVehicleService(vehicle.id, { date: svc.date, km: Number(svc.km), type: svc.type, center: svc.center, costDA: Number(svc.cost) });
+      setServices((s) => [saved, ...s]);
+    } catch {
+      setServices((s) => [{ id: `S-${Date.now()}`, date: svc.date, km: Number(svc.km), type: svc.type, center: svc.center, costDA: Number(svc.cost) }, ...s]);
+    }
     setShowServiceForm(false);
     setSvc({ date: new Date().toISOString().slice(0, 10), km: '', type: 'Vidange + filtres', center: '', cost: '' });
   }

@@ -17,6 +17,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { missions, notifications } from '../data/mock';
+import type { AppUser } from '../data/mock';
 
 const imgLogo = '/assets/b6cbb.svg';
 
@@ -27,6 +28,7 @@ interface LayoutProps {
   children: ReactNode;
   pageTitle: string;
   breadcrumb?: string;
+  currentUser?: AppUser | null;
 }
 
 const PAGE_LABELS: Record<string, string> = {
@@ -57,7 +59,7 @@ const toolItems = [
 ];
 
 export default function Layout({
-  currentPage, onNavigate, onLogout, children, pageTitle, breadcrumb,
+  currentPage, onNavigate, onLogout, children, pageTitle, breadcrumb, currentUser,
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -340,7 +342,7 @@ export default function Layout({
                   className="flex items-center gap-2 rounded-lg p-1.5 transition-colors hover:bg-[var(--surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 >
                   <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--navy)] text-[11px] font-bold text-white">
-                    NF
+                    {(currentUser?.name ?? 'Nadia Ferdi').split(' ').map(word => word[0]).slice(0, 2).join('')}
                   </span>
                 </button>
                 {profileOpen && (

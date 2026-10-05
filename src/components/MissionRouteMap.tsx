@@ -60,6 +60,7 @@ export const STATUS_PROGRESS: Record<Status, number> = {
   brouillon: 0,
   en_attente: 0.15,
   validee: 0.35,
+  rejetee: 0,
   affectee: 0.5,
   confirmee: 0.65,
   en_cours: 0.8,

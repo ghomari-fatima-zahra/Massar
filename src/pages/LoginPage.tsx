@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 interface Props {
-  onLogin: () => void;
+  onLogin: (identifier: string, password: string) => Promise<void>;
+  serverError?: string;
 }
 
 function UserIcon() {
@@ -48,7 +49,7 @@ function AlertIcon() {
   );
 }
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({ onLogin, serverError }: Props) {
   const [email, setEmail] = useState('n.ferdi@dot.dz');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
@@ -56,7 +57,7 @@ export default function LoginPage({ onLogin }: Props) {
   const [error, setError] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) {
       setError('Veuillez renseigner votre identifiant et votre mot de passe.');
@@ -65,10 +66,13 @@ export default function LoginPage({ onLogin }: Props) {
 
     setError('');
     setLoading(true);
-    window.setTimeout(() => {
+    try {
+      await onLogin(email, password);
       setLoading(false);
-      onLogin();
-    }, 800);
+    } catch (loginError) {
+      setLoading(false);
+      setError(loginError instanceof Error ? loginError.message : 'Identifiant ou mot de passe incorrect.');
+    }
   }
 
   function handleForgotPassword() {
@@ -144,10 +148,10 @@ export default function LoginPage({ onLogin }: Props) {
               </p>
             )}
 
-            {error && (
+            {(error || serverError) && (
               <div className="login-error" role="alert">
                 <AlertIcon />
-                <p>{error}</p>
+                <p>{error || serverError}</p>
               </div>
             )}
 

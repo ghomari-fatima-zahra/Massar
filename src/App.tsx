@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate as useRouterNavigate } from 'react-router-dom';
 import { vehicles, drivers, missions, users } from './data/mock';
 import type { Driver, MissionRoute, Status, AppUser } from './data/mock';
+import { api, type DashboardStats, getStoredUser } from './api/client';
+import { normalizeApiMission, replaceApiData } from './api/mockSync';
 import { Bus, Car, FileArrowDown, PencilSimple, Trash, UserPlus, X } from '@phosphor-icons/react';
 import Layout from './components/Layout';
 import Pagination from './components/Pagination';
@@ -88,7 +90,11 @@ export default function App() {
   const location = useLocation();
   const routerNavigate = useRouterNavigate();
   const initialPage = pageFromPath(location.pathname);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getStoredUser()));
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => getStoredUser());
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(() => Boolean(getStoredUser()));
+  const [apiError, setApiError] = useState('');
   const [currentPage, setCurrentPage] = useState<Page>(initialPage);
   const [missionModalOpen, setMissionModalOpen] = useState(location.pathname === '/missions/new');
   const [selectedMissionId, setSelectedMissionId] = useState<string | undefined>(() => missionIdFromPath(location.pathname));
@@ -101,6 +107,41 @@ export default function App() {
   const [statusOverrides, setStatusOverrides] = useState<Record<string, Status>>({});
   // Company employees (demandeurs) — admin managed
   const [employeeList, setEmployeeList] = useState<AppUser[]>(users);
+
+  async function loadApiData() {
+    const [missionResponse, vehicleResponse, driverResponse, userResponse, notificationResponse, stats] = await Promise.all([
+      api.missions(),
+      api.vehicles(),
+      api.drivers(),
+      api.users(),
+      api.notifications(),
+      api.dashboardStats(),
+    ]);
+    const apiMissions = missionResponse.data.map(normalizeApiMission);
+    replaceApiData({
+      missions: apiMissions,
+      vehicles: vehicleResponse.data,
+      drivers: driverResponse.data,
+      users: userResponse.data,
+      notifications: notificationResponse.data,
+    });
+    setEmployeeList(userResponse.data);
+    setDashboardStats(stats);
+    setCurrentUser(getStoredUser());
+  }
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setSessionLoading(true);
+    setApiError('');
+    void loadApiData()
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Impossible de charger les données du serveur.';
+        setApiError(message);
+        setIsLoggedIn(false);
+      })
+      .finally(() => setSessionLoading(false));
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (location.pathname === '/missions/new') {
@@ -118,21 +159,36 @@ export default function App() {
   }, [location.pathname, location.search]);
 
   // Driver presses "Démarrer": the mission starts immediately
-  function handleStartMission(missionId: string) {
+  async function handleStartMission(missionId: string) {
     const m = missions.find(mm => mm.id === missionId);
-    if (!m || m.status !== 'en_attente') return;
+    if (!m || ['terminee', 'annulee', 'en_cours'].includes(m.status)) return;
     const hasDriver = assignments[missionId]?.driverId || m.driverId;
-    if (!hasDriver) return;
-    setStatusOverrides(o => ({ ...o, [missionId]: 'en_cours' }));
+    if (m.vehicleNeeded && !hasDriver) return;
+    try {
+      if (m.status === 'en_attente') await api.validateMission(missionId);
+      if (m.status === 'en_attente' || m.status === 'validee') {
+        await api.assignMission(missionId, assignments[missionId]?.vehicleId || m.vehicleId, hasDriver);
+      }
+      if (m.status === 'en_attente' || m.status === 'validee' || m.status === 'affectee') await api.confirmMission(missionId);
+      await api.startMission(missionId);
+      await loadApiData();
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Impossible de démarrer la mission.');
+    }
   }
 
-  function handleCancelMission(missionId: string) {
+  async function handleCancelMission(missionId: string) {
     const mission = missions.find(item => item.id === missionId);
     if (!mission || ['terminee', 'annulee'].includes(mission.status)) return;
-    setStatusOverrides(o => ({ ...o, [missionId]: 'annulee' }));
+    try {
+      await api.cancelMission(missionId);
+      await loadApiData();
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Impossible d’annuler la mission.');
+    }
   }
 
-  function handleSubmitMission(data: {
+  async function handleSubmitMission(data: {
     missionId?: string;
     saveAsDraft: boolean;
     demandeurId: string;
@@ -150,61 +206,9 @@ export default function App() {
     assignedVehicleId: string;
     notes: string;
   }) {
-    const assignedVehicle = vehicles.find(v => v.id === data.assignedVehicleId);
     const demandeur = employeeList.find(u => u.id === data.demandeurId) ?? employeeList.find(u => u.status === 'actif');
-
-    if (data.missionId) {
-      const index = missions.findIndex(mission => mission.id === data.missionId);
-      if (index === -1) return;
-      const existing = missions[index];
-      missions[index] = {
-        ...existing,
-        demandeurId: demandeur?.id ?? data.demandeurId,
-        employee: demandeur?.name ?? existing.employee,
-        matricule: demandeur?.matricule ?? existing.matricule,
-        structure: demandeur?.structure ?? existing.structure,
-        type: data.type as 'interne' | 'externe',
-        object: data.object,
-        departure: data.departure,
-        destination: data.destination,
-        route: data.route,
-        departureDate: data.departureDate,
-        returnDate: data.returnDate,
-        departureTime: data.departureTime,
-        returnTime: data.returnTime,
-        passengers: data.passengers,
-        vehicleNeeded: Boolean(data.assignedVehicleId),
-        vehicleType: assignedVehicle?.type ?? '',
-        status: data.saveAsDraft ? 'brouillon' : 'en_attente',
-        vehicleId: data.assignedVehicleId || undefined,
-        driverId: data.assignedDriverId || undefined,
-        validatedBy: undefined,
-      };
-      setAssignments(current => {
-        const next = { ...current };
-        if (data.assignedVehicleId && data.assignedDriverId) {
-          next[data.missionId!] = { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId };
-        } else {
-          delete next[data.missionId!];
-        }
-        return next;
-      });
-      setStatusOverrides(current => {
-        const next = { ...current };
-        delete next[data.missionId!];
-        return next;
-      });
-      return;
-    }
-
-    // A newly saved mission is either a real draft or pending, never already in progress.
-    const newId = `M${new Date().getFullYear()}-${String(missions.length + 1).padStart(3, '0')}`;
-    const newMission = {
-      id: newId,
+    const payload = {
       demandeurId: demandeur?.id ?? data.demandeurId,
-      employee: demandeur?.name ?? 'Employé non renseigné',
-      matricule: demandeur?.matricule ?? '—',
-      structure: demandeur?.structure ?? '—',
       type: data.type as 'interne' | 'externe',
       object: data.object,
       departure: data.departure,
@@ -216,19 +220,22 @@ export default function App() {
       returnTime: data.returnTime,
       passengers: data.passengers,
       vehicleNeeded: Boolean(data.assignedVehicleId),
-      vehicleType: assignedVehicle?.type ?? '',
-      status: (data.saveAsDraft ? 'brouillon' : 'en_attente') as Status,
       vehicleId: data.assignedVehicleId || undefined,
       driverId: data.assignedDriverId || undefined,
-      createdAt: new Date().toISOString().split('T')[0],
     };
-    missions.push(newMission);
-    if (data.assignedVehicleId && data.assignedDriverId) {
-      setAssignments(a => ({ ...a, [newId]: { vehicleId: data.assignedVehicleId, driverId: data.assignedDriverId } }));
+    const saved = data.missionId ? await api.updateMission(data.missionId, payload) : await api.createMission(payload);
+    if (!data.saveAsDraft) {
+      const submitted = saved.status === 'brouillon' ? await api.submitMission(saved.id) : saved;
+      const validated = submitted.status === 'en_attente' ? await api.validateMission(submitted.id) : submitted;
+      if (data.assignedVehicleId || data.assignedDriverId) await api.assignMission(validated.id, data.assignedVehicleId || undefined, data.assignedDriverId || undefined);
     }
+    await loadApiData();
   }
 
-  function handleLogin() {
+  async function handleLogin(identifier: string, password: string) {
+    setApiError('');
+    const response = await api.login(identifier, password);
+    setCurrentUser(response.user);
     setCurrentPage('admin-dashboard');
     setHistory([]);
     setFleetFilter('all');
@@ -237,13 +244,16 @@ export default function App() {
     setIsLoggedIn(true);
   }
 
-  function handleLogout() {
+  async function handleLogout() {
+    try { await api.logout(); } catch { /* The session is cleared locally below. */ }
     setCurrentPage('admin-dashboard');
     setHistory([]);
     setFleetFilter('all');
     setMissionModalOpen(false);
     routerNavigate('/dashboard', { replace: true });
     setIsLoggedIn(false);
+    setCurrentUser(null);
+    setDashboardStats(null);
   }
 
   function navigate(page: string, id?: string) {
@@ -306,7 +316,7 @@ export default function App() {
   function renderPage() {
     switch (currentPage) {
       case 'admin-dashboard':
-        return <AdminDashboard statusOverrides={statusOverrides} onNavigate={navigate} />;
+        return <AdminDashboard statusOverrides={statusOverrides} dashboardStats={dashboardStats} currentUser={currentUser} onNavigate={navigate} />;
       case 'fleet-missions':
         return <FleetMissions key={fleetFilter} initialFilter={fleetFilter} assignments={assignments} statusOverrides={statusOverrides} onStartMission={handleStartMission} onNavigate={navigate} />;
       case 'new-mission':
@@ -319,7 +329,7 @@ export default function App() {
         return <MissionDetail missionId={mission.id} assignments={assignments} statusOverrides={statusOverrides} onNavigate={navigate} onBack={goBack} onCancelMission={handleCancelMission} onEditMission={(id) => navigate('new-mission', id)} />;
       }
       case 'admin-drivers':
-        return <AdminDriversPage assignments={assignments} />;
+         return <AdminDriversPage assignments={assignments} onRefresh={loadApiData} />;
       case 'employes':
         return (
           <EmployesPage
@@ -332,11 +342,11 @@ export default function App() {
           />
         );
       case 'admin-vehicles':
-        return <AdminVehiclesPage assignments={assignments} employees={employeeList} onNavigate={navigate} />;
+         return <AdminVehiclesPage assignments={assignments} employees={employeeList} onNavigate={navigate} onRefresh={loadApiData} />;
       case 'admin-structures':
         return <AdminStructuresPage />;
       case 'notifications':
-        return <NotificationsPage onNavigate={navigate} />;
+         return <NotificationsPage onNavigate={navigate} onRefresh={loadApiData} />;
       case 'parametres':
         return <ParametresPage onNavigate={navigate} />;
       case 'aide':
@@ -347,7 +357,15 @@ export default function App() {
   }
 
   if (!isLoggedIn) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} serverError={apiError} />;
+  }
+
+  if (sessionLoading) {
+    return <div className="min-h-screen grid place-items-center bg-[var(--page)] text-[var(--ink-muted)]">Connexion au serveur…</div>;
+  }
+
+  if (!dashboardStats) {
+    return <div className="min-h-screen grid place-items-center bg-[var(--page)] text-[var(--ink-muted)]">Les statistiques du tableau de bord sont indisponibles.</div>;
   }
 
   return (
@@ -357,6 +375,7 @@ export default function App() {
       onLogout={handleLogout}
       pageTitle={PAGE_TITLES[currentPage] || 'Massar Fleet'}
       breadcrumb={PAGE_BREADCRUMBS[currentPage]}
+      currentUser={currentUser}
     >
       <PageErrorBoundary resetKey={currentPage} onReset={() => setCurrentPage('admin-dashboard')}>
         {renderPage()}
@@ -406,7 +425,7 @@ function downloadCsv(filename: string, headers: string[], rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-function AdminDriversPage({ assignments }: { assignments: Record<string, { vehicleId: string; driverId: string }> }) {
+function AdminDriversPage({ assignments, onRefresh }: { assignments: Record<string, { vehicleId: string; driverId: string }>; onRefresh?: () => Promise<void> }) {
   const [driverList, setDriverList] = useState<Driver[]>(drivers);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -452,7 +471,7 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
     setShowModal(true);
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Le nom complet est requis.';
     if (!form.phone.trim()) e.phone = 'Le téléphone est requis.';
@@ -460,35 +479,36 @@ function AdminDriversPage({ assignments }: { assignments: Record<string, { vehic
     if (!form.licenceExpiry) e.licenceExpiry = "La date d'expiration du permis est requise.";
     if (Object.keys(e).length) { setErrors(e); return; }
     if (editingId) {
-      setDriverList(list => list.map(d => d.id === editingId ? {
-        ...d,
-        name: form.name.trim(),
-        licenceCategories: [...form.licenceCategories].sort(),
-        licenceExpiry: form.licenceExpiry,
-        phone: form.phone.trim(),
-        status: form.status,
-      } : d));
+      const updated = await api.updateDriver(editingId, {
+        name: form.name.trim(), licenceCategories: [...form.licenceCategories].sort(),
+        licenceExpiry: form.licenceExpiry, phone: form.phone.trim(),
+        status: form.status === 'en_mission' ? 'disponible' : form.status,
+      });
+      setDriverList(list => list.map(d => d.id === editingId ? updated : d));
       setShowModal(false);
       setEditingId(null);
+      await onRefresh?.();
       return;
     }
-    const next: Driver = {
-      id: `D${String(driverList.length + 1).padStart(3, '0')}`,
+    const next = await api.createDriver({
       name: form.name.trim(),
       matricule: nextMatricule(driverList),
       licenceCategories: [...form.licenceCategories].sort(),
       licenceExpiry: form.licenceExpiry,
       phone: form.phone.trim(),
       status: form.status,
-    };
+    });
     setDriverList(list => [...list, next]);
     setShowModal(false);
+    await onRefresh?.();
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!pendingDelete) return;
+    await api.deleteDriver(pendingDelete.id);
     setDriverList(list => list.filter(driver => driver.id !== pendingDelete.id));
     setPendingDelete(null);
+    await onRefresh?.();
   }
 
   const inputClass = (field: string) =>
@@ -756,10 +776,12 @@ function AdminVehiclesPage({
   onNavigate: _onNavigate,
   assignments,
   employees,
+  onRefresh,
 }: {
   onNavigate: (page: string) => void;
   assignments: Record<string, { vehicleId: string; driverId: string }>;
   employees: AppUser[];
+  onRefresh?: () => Promise<void>;
 }) {
   const [vehicleList, setVehicleList] = useState(vehicles);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -822,8 +844,10 @@ function AdminVehiclesPage({
     setShowForm(true);
   }
 
-  function setVehicleStatus(id: string, status: typeof vehicleList[0]['status']) {
-    setVehicleList(list => list.map(v => v.id === id ? { ...v, status } : v));
+  async function setVehicleStatus(id: string, status: typeof vehicleList[0]['status']) {
+    const updated = await api.updateVehicleStatus(id, status);
+    setVehicleList(list => list.map(v => v.id === id ? updated : v));
+    await onRefresh?.();
   }
 
   function openAssignment(id: string) {
@@ -843,7 +867,7 @@ function AdminVehiclesPage({
     setAssignmentErrors({});
   }
 
-  function handleAssignment() {
+  async function handleAssignment() {
     const errors: Record<string, string> = {};
     if (!assignmentForm.employeeId) errors.employeeId = 'Sélectionnez un employé.';
     if (!assignmentForm.service.trim()) errors.service = 'Indiquez le service ou la mission.';
@@ -856,16 +880,20 @@ function AdminVehiclesPage({
     const vehicle = vehicleList.find(v => v.id === assignmentVehicleId);
     if (!vehicle || vehicle.status !== 'disponible') return;
 
-    setVehicleList(list => list.map(v => v.id === vehicle.id ? { ...v, status: 'indisponible' } : v));
+    const updated = await api.updateVehicleStatus(vehicle.id, 'indisponible');
+    setVehicleList(list => list.map(v => v.id === vehicle.id ? updated : v));
     closeAssignment();
+    await onRefresh?.();
   }
 
-  function handleDeleteVehicle(id: string) {
+  async function handleDeleteVehicle(id: string) {
+    await api.deleteVehicle(id);
     setVehicleList(list => list.filter(v => v.id !== id));
     setDetailId(null);
+    await onRefresh?.();
   }
 
-  function handleSave() {
+  async function handleSave() {
     const e: Record<string, string> = {};
     if (!form.brand.trim()) e.brand = 'La marque est requise.';
     if (!form.model.trim()) e.model = 'Le modèle est requis.';
@@ -877,16 +905,15 @@ function AdminVehiclesPage({
     if (Object.keys(e).length) { setErrors(e); return; }
 
     if (editingId) {
-      setVehicleList(list => list.map(v => v.id === editingId ? { ...v, ...form } : v));
+      const updated = await api.updateVehicle(editingId, form);
+      setVehicleList(list => list.map(v => v.id === editingId ? updated : v));
     } else {
-      const next: typeof vehicleList[0] = {
-        id: `V${String(vehicleList.length + 1).padStart(3, '0')}`,
-        ...form,
-      };
+      const next = await api.createVehicle(form);
       setVehicleList(list => [...list, next]);
     }
     setShowForm(false);
     setEditingId(null);
+    await onRefresh?.();
   }
 
   const detailVehicle = vehicleList.find(v => v.id === detailId) ?? null;

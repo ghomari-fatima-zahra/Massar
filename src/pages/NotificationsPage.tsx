@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { notifications } from '../data/mock';
 import type { Notification } from '../data/mock';
 import Pagination from '../components/Pagination';
+import { api } from '../api/client';
 
 interface Props {
   onNavigate: (page: string) => void;
+  onRefresh?: () => Promise<void>;
 }
 
 const TYPE_STYLES = {
@@ -37,15 +39,23 @@ function TypeIcon({ type }: { type: Notification['type'] }) {
   );
 }
 
-export default function NotificationsPage({ onNavigate }: Props) {
+export default function NotificationsPage({ onNavigate: _onNavigate, onRefresh }: Props) {
   const [readState, setReadState] = useState<Record<string, boolean>>(
     Object.fromEntries(notifications.map(n => [n.id, n.read]))
   );
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [page, setPage] = useState(1);
 
-  function markRead(id: string) { setReadState(s => ({ ...s, [id]: true })); }
-  function markAllRead() { setReadState(Object.fromEntries(notifications.map(n => [n.id, true]))); }
+  async function markRead(id: string) {
+    setReadState(s => ({ ...s, [id]: true }));
+    await api.markNotificationRead(id);
+    await onRefresh?.();
+  }
+  async function markAllRead() {
+    setReadState(Object.fromEntries(notifications.map(n => [n.id, true])));
+    await api.markAllNotificationsRead();
+    await onRefresh?.();
+  }
 
   const unreadCount = notifications.filter(n => !readState[n.id]).length;
   const displayed = notifications.filter(n => filter === 'all' || !readState[n.id]);

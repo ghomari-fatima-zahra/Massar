@@ -1,6 +1,6 @@
 export type Status =
   | 'brouillon' | 'en_attente' | 'validee'
-  | 'affectee' | 'confirmee' | 'en_cours' | 'terminee' | 'annulee';
+  | 'rejetee' | 'affectee' | 'confirmee' | 'en_cours' | 'terminee' | 'annulee';
 
 export type Role = 'admin';
 
@@ -110,6 +110,7 @@ export const STATUS_LABELS: Record<Status, string> = {
   brouillon: 'Brouillon',
   en_attente: 'Programmée',
   validee: 'Validée',
+  rejetee: 'Rejetée',
   affectee: 'Affectée',
   confirmee: 'Confirmée',
   en_cours: 'En cours',

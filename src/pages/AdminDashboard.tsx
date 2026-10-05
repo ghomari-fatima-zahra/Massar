@@ -26,12 +26,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { currentUsers, drivers, missions, vehicles } from '../data/mock';
-import type { Status } from '../data/mock';
+import { drivers, missions, vehicles } from '../data/mock';
+import type { AppUser, Status } from '../data/mock';
+import type { DashboardStats } from '../api/client';
 
 interface Props {
   onNavigate: (page: string, id?: string) => void;
   statusOverrides: Record<string, Status>;
+  dashboardStats?: DashboardStats | null;
+  currentUser?: AppUser | null;
 }
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
@@ -40,6 +43,7 @@ const STATUS_TONE: Record<Status, string> = {
   brouillon: 'neutral',
   en_attente: 'warning',
   validee: 'success',
+  rejetee: 'neutral',
   affectee: 'info',
   confirmee: 'info',
   en_cours: 'accent',
@@ -51,6 +55,7 @@ const STATUS_LABELS: Record<Status, string> = {
   brouillon: 'Brouillon',
   en_attente: 'Programmée',
   validee: 'Validée',
+  rejetee: 'Rejetée',
   affectee: 'Affectée',
   confirmee: 'Confirmée',
   en_cours: 'En cours',
@@ -213,33 +218,35 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
+export default function AdminDashboard({ onNavigate, statusOverrides, dashboardStats, currentUser }: Props) {
   const [exportOpen, setExportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
-  const effMissions = missions.map((m) => (statusOverrides[m.id] ? { ...m, status: statusOverrides[m.id] } : m));
-  const filteredMissions = effMissions;
-  const totalMissions = filteredMissions.length;
-  const activeMissions = filteredMissions.filter((m) => m.status === 'en_cours');
-  const availableVehicles = vehicles.filter((v) => v.status === 'disponible');
+  if (!dashboardStats) return null;
+
+  const filteredMissions = missions.map((m) => (statusOverrides[m.id] ? { ...m, status: statusOverrides[m.id] } : m));
+  const totalMissions = dashboardStats.kpis.totalMissions;
+  const activeMissionCount = dashboardStats.kpis.inProgressMissions;
   const maintenanceVehicles = vehicles.filter((v) => v.status === 'maintenance');
-  const assignedVehicles = vehicles.filter(
-    (v) => v.status === 'affecte' || v.status === 'indisponible',
-  );
   const availableDrivers = drivers.filter((d) => d.status === 'disponible');
-  const fleetPct =
-    vehicles.length > 0 ? Math.round((availableVehicles.length / vehicles.length) * 100) : 0;
+  const totalVehicles = dashboardStats.kpis.totalVehicles;
+  const availableVehicleCount = dashboardStats.kpis.availableVehicles;
+  const maintenanceVehicleCount = dashboardStats.fleetAvailability.find((item) => item.status === 'maintenance')?.count ?? 0;
+  const assignedVehicleCount = dashboardStats.fleetAvailability.find((item) => item.status === 'affecte')?.count ?? 0;
+  const availableDriverCount = dashboardStats.kpis.availableDrivers;
+  const fleetPct = totalVehicles > 0 ? Math.round((availableVehicleCount / totalVehicles) * 100) : 0;
 
   const currentMonth = new Date().getMonth();
-  const missionData = MONTH_LABELS.map((month, idx) => ({
-    month,
-    missions: filteredMissions.filter((m) => {
-      const d = new Date(m.departureDate);
-      return !Number.isNaN(d.getTime()) && d.getMonth() === idx;
-    }).length,
-    current: idx === currentMonth,
-  }));
+  const currentYear = new Date().getFullYear();
+  const missionData = MONTH_LABELS.map((month, idx) => {
+    const apiMonth = dashboardStats.missionsByMonth.find((item) => item.month === `${currentYear}-${String(idx + 1).padStart(2, '0')}`);
+    return {
+      month,
+      missions: apiMonth?.count ?? 0,
+      current: idx === currentMonth,
+    };
+  });
 
   const recentMissions = [...filteredMissions]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
@@ -255,7 +262,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
   const today = new Date();
   const greeting =
     today.getHours() < 12 ? 'Bonjour' : today.getHours() < 18 ? 'Bon après-midi' : 'Bonsoir';
-  const admin = currentUsers.admin;
+  const adminName = currentUser?.name ?? 'Administrateur';
 
   function showToast(message: string) {
     setToast(message);
@@ -311,7 +318,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
         <div>
           <h1 className="mt-0 text-[2rem] font-semibold leading-tight tracking-[-0.035em] text-[var(--ink)]">
             <span className="block">{greeting},</span>
-            <span className="block">{admin.name}</span>
+            <span className="block">{adminName}</span>
           </h1>
         </div>
         <div className="flex flex-col items-start gap-3 lg:items-end">
@@ -359,7 +366,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
         />
         <MetricCard
           label="Missions actives"
-          value={String(activeMissions.length)}
+          value={String(activeMissionCount)}
           helper="en déplacement"
           icon={MapPin}
           tone="info"
@@ -367,7 +374,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
         />
         <MetricCard
           label="Conducteurs disponibles"
-          value={String(availableDrivers.length)}
+          value={String(availableDriverCount)}
           helper="en ligne"
           icon={UsersThree}
           tone="neutral"
@@ -376,7 +383,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
         <MetricCard
           label="Disponibilité flotte"
           value={`${fleetPct} %`}
-          helper={`${availableVehicles.length} véhicules libres`}
+          helper={`${availableVehicleCount} véhicules libres`}
           icon={Car}
           tone="success"
           onClick={() => onNavigate('admin-vehicles')}
@@ -492,20 +499,20 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
           </div>
           <div className="mt-6 grid gap-4 border-b border-[var(--line)] pb-5 sm:grid-cols-3">
             <DonutRing
-              value={availableVehicles.length}
-              total={vehicles.length}
+              value={availableVehicleCount}
+              total={totalVehicles}
               color="var(--success)"
               label="Disponibles"
             />
             <DonutRing
-              value={maintenanceVehicles.length}
-              total={vehicles.length}
+              value={maintenanceVehicleCount}
+              total={totalVehicles}
               color="var(--warning)"
               label="Maintenance"
             />
             <DonutRing
-              value={assignedVehicles.length}
-              total={vehicles.length}
+              value={assignedVehicleCount}
+              total={totalVehicles}
               color="var(--info)"
               label="Affectés"
             />
@@ -606,7 +613,7 @@ export default function AdminDashboard({ onNavigate, statusOverrides }: Props) {
                 onClick={() => onNavigate('admin-drivers')}
                 className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent-strong)] hover:underline"
               >
-                {availableDrivers.length} en ligne
+                {availableDriverCount} en ligne
               </button>
             </div>
             <div className="mt-3 flex -space-x-2">
